@@ -7,7 +7,7 @@ The system behaves like a small software-engineering organization: builders, arc
 ## Layout
 
 ```
-~/.config/opencode/
+<config-dir>/            ← e.g. ~/.config/opencode/ (global), or .opencode/ (per-project)
 ├── README.md            ← this file
 ├── docs/                ← design + operations documentation
 │   ├── ARCHITECTURE.md
