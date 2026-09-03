@@ -32,11 +32,12 @@ Resulting layout:
 └── agents/
     ├── luna/   (7 agents)
     ├── v4/     (8 agents)
-    ├── glm/    (4 agents)
-    └── dual/   (4 agents)
+    ├── glm/    (8 agents)
+    ├── dual/   (4 agents)
+    └── route/  (1 agent)
 ```
 
-No merge needed if these names don't already exist; if you have an existing `agents/` dir, copy only the `luna/`, `v4/`, `glm/`, `dual/` subdirectories.
+No merge needed if these names don't already exist; if you have an existing `agents/` dir, copy only the `luna/`, `v4/`, `glm/`, `dual/`, `route/` subdirectories.
 
 ## 3. Verify discovery and frontmatter
 
@@ -45,8 +46,9 @@ No merge needed if these names don't already exist; if you have an existing `age
 opencode debug agent luna/build
 opencode debug agent v4/build
 opencode debug agent glm/build
-opencode debug agent glm/reviewer
+opencode debug agent glm/security-review
 opencode debug agent dual/orchestrator
+opencode debug agent route/orchestrator
 opencode debug agent luna/reviewer
 opencode debug agent dual/luna-reviewer
 
@@ -59,10 +61,10 @@ Each command should print a resolved agent config. Any frontmatter error surface
 ## 4. Verify the key invariants
 
 1. **No web on Luna**: `opencode debug agent luna/build` → permission list must contain `webfetch → deny` and `websearch → deny`. Check all 7 `luna/*` agents + `dual/luna-reviewer`.
-2. **No web on GLM**: `opencode debug agent glm/build` → `webfetch → deny`, `websearch → deny`. Check all 4 `glm/*` agents.
+2. **No web on GLM**: `opencode debug agent glm/build` → `webfetch → deny`, `websearch → deny`. Check all 8 `glm/*` agents (including `glm/researcher` — local research only).
 3. **Web on V4 researchers**: `opencode debug agent v4/researcher` → `webfetch → allow`, `websearch → allow`.
-4. **Models**: `luna/*` → `openrouter/openai/gpt-5.6-luna`; `v4/*`, `dual/orchestrator`, `dual/v4-*` → `openrouter/deepseek/deepseek-v4-flash-0731`; `glm/*` → `openrouter/z-ai/glm-5.3-flash`.
-5. **Delegation allowlists**: `debug agent` shows the `task` rules; confirm the catch-all `deny` precedes specific `allow`s (last-match-wins), and that `glm/build` only allows `glm/*` specialists (no cross-family task path).
+4. **Models**: `luna/*` → `openrouter/openai/gpt-5.6-luna`; `v4/*`, `dual/orchestrator`, `dual/v4-*`, `route/orchestrator` → `openrouter/deepseek/deepseek-v4-flash-0731`; `glm/*` → `openrouter/z-ai/glm-5.3-flash`.
+5. **Delegation allowlists**: `debug agent` shows the `task` rules; confirm the catch-all `deny` precedes specific `allow`s (last-match-wins), that each single-model primary only allows its own family (`glm/build` → `glm/*`, no cross-family task path), and that only `route/orchestrator` spans families.
 6. **subagent_depth**: leave at the default `1` (or set `"subagent_depth": 1` explicitly in `opencode.json`). This keeps agent trees one level deep — no recursive spawning.
 
 ## 5. Smoke test each mode
@@ -81,6 +83,9 @@ opencode run --agent glm/build --auto "Add an exponent function to src/math.js, 
 
 # Mode C — two-model
 opencode run --agent dual/orchestrator --auto "Add a divide function to src/math.js, export it, extend test.js to verify it"
+
+# Mode R — adaptive router (normal task → V4; smoke as directed by ROUTING.md)
+opencode run --agent route/orchestrator --auto "Add an increment function to src/math.js, export it, and verify with node test.js"
 ```
 
 Successful behavior (verified against 1.18.x):
@@ -89,6 +94,7 @@ Successful behavior (verified against 1.18.x):
 - Mode B: same, with V4.
 - Mode D: same, with GLM, web-free and GLM-only.
 - Mode C: orchestrator delegates, Luna builder **verifies/amends** the contract (e.g., fixed an import path in the smoke test), implements, validates; orchestrator reports a structured result.
+- Mode R: router classifies a normal task and routes it to V4 (default), then reports a structured `## Routed result`; escalation-driven rerouting is bounded and terminates in SUCCESS or BLOCKED.
 
 ## 6. TUI usage
 
@@ -96,12 +102,12 @@ Successful behavior (verified against 1.18.x):
 opencode
 ```
 
-Press **Tab** to cycle primary agents: `luna/build` → `v4/build` → `glm/build` → `dual/orchestrator` → built-in `build`/`plan`. Pick the mode you want and start typing. Invoke subagents directly with `@luna/reviewer`, `@v4/researcher`, `@glm/reviewer`, etc.
+Press **Tab** to cycle primary agents: `luna/build` → `v4/build` → `glm/build` → `dual/orchestrator` → `route/orchestrator` → built-in `build`/`plan`. Pick the mode you want and start typing. Invoke subagents directly with `@luna/reviewer`, `@v4/researcher`, `@glm/reviewer`, etc.
 
 ## 7. Uninstall
 
 ```bash
-rm -rf ~/.config/opencode/agents/luna ~/.config/opencode/agents/v4 ~/.config/opencode/agents/glm ~/.config/opencode/agents/dual
+rm -rf ~/.config/opencode/agents/luna ~/.config/opencode/agents/v4 ~/.config/opencode/agents/glm ~/.config/opencode/agents/dual ~/.config/opencode/agents/route
 ```
 
 Docs and README can stay (they're documentation) or be removed with the same pattern.
