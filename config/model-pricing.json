@@ -1,0 +1,71 @@
+{
+  "$comment": "Pricing assumptions for COST ACCOUNTING ONLY. These are NOT routing instructions and are never injected into agent prompts. All prices are USD. Token prices are per 1,000,000 tokens unless noted. Update as_of when a price record changes; never edit agent prompts to change prices.",
+  "as_of": "2026-09-03",
+  "currency": "USD",
+  "token_unit": "per_1M",
+  "credit_multiplier": {
+    "$comment": "OpenRouter prepaid-credit overhead applied to the total OpenRouter bill. Kept explicit rather than silently baked into token prices (per docs/PROVIDER-POLICY.md).",
+    "openrouter": 1.055
+  },
+  "models": {
+    "deepseek-v4": {
+      "family": "V4",
+      "agent_namespace": "v4",
+      "model_id": "openrouter/deepseek/deepseek-v4-flash-0731",
+      "deepseek_direct": {
+        "$comment": "DeepSeek first-party direct API list prices (peak/off-peak IST windows). Used only by the off-peak batch path (scripts/opencode-direct-deepseek); NOT used for interactive routing.",
+        "peak": { "cache_hit_input": 0.014, "input": 0.44, "output": 1.32 },
+        "off_peak": { "cache_hit_input": 0.007, "input": 0.22, "output": 0.66 }
+      },
+      "openrouter": {
+        "$comment": "OpenRouter listed price for the pinned model id. Verified against OpenRouter /api/v1/models on as_of.",
+        "input": 0.065,
+        "cache_read": 0.016,
+        "cache_write": null,
+        "output": 0.18
+      }
+    },
+    "glm-5.3": {
+      "family": "GLM",
+      "agent_namespace": "glm",
+      "model_id": "openrouter/z-ai/glm-5.3-flash",
+      "openrouter": {
+        "$comment": "OpenRouter listed price, dated record. Promotional/discounted pricing is NOT assumed permanent; revise as_of when it changes.",
+        "as_of": "2026-09-03",
+        "input": 0.075,
+        "cache_read": 0.015,
+        "cache_write": null,
+        "output": 0.25
+      }
+    },
+    "luna-5.6": {
+      "family": "LUNA",
+      "agent_namespace": "luna",
+      "model_id": "openrouter/openai/gpt-5.6-luna",
+      "openrouter": {
+                "$comment": "OpenRouter listed price for the pinned Luna model id (provider.only=[openai/flex,azure,openai]). <=272K context tier is the one in use; web_search is per 1000 calls (not per token).",
+        "as_of": "2026-09-03",
+        "<=272k": {
+          "input": 0.20,
+          "cache_read": 0.02,
+          "cache_write": 0.25,
+          "output": 1.20,
+          "web_search": 10.0
+        },
+        ">272k": {
+                    "$comment": "Higher tier exists; the pinned config never exceeds the <=272K tier, so >272k is unused unless the config is later raised.",
+          "input": 0.40,
+          "cache_read": 0.04,
+          "cache_write": 0.50,
+          "output": 1.80
+        }
+      },
+      "openai_flex_direct": {
+        "$comment": "OpenAI first-party Flex reference values supplied for future direct-provider accounting. Not currently used (interactive path goes through OpenRouter).",
+        "<=272k": { "input": 0.10, "cache_read": 0.01, "cache_write": 0.125, "output": 0.60, "web_search": 10.0 }
+      },
+      "web_search_blocked": true,
+      "$comment_web": "Luna web search is blocked in this harness. web_search_calls MUST be recorded as 0 in normal sessions."
+    }
+  }
+}
