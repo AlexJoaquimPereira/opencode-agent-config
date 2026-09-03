@@ -1,0 +1,11 @@
+{
+  "routes": {
+    "v4": { "agents": ["v4/build"], "label": "V4" },
+    "glm": { "agents": ["glm/build"], "label": "GLM" },
+    "luna": { "agents": ["luna/build"], "label": "LUNA" },
+    "v4-glm": { "agents": ["v4/build", "glm/build"], "label": "V4->GLM" },
+    "v4-luna": { "agents": ["v4/build", "luna/build"], "label": "V4->LUNA" },
+    "v4-glm-luna": { "agents": ["v4/build", "glm/build", "luna/build"], "label": "V4->GLM->LUNA" },
+    "router": { "router": true, "agent": "route/orchestrator", "label": "ROUTER" }
+  }
+}
