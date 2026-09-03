@@ -1,0 +1,9 @@
+node_modules
+package.json
+bun.lock
+
+# Runtime telemetry + benchmark outputs (append-only measurement data).
+# Never committed: these are continuously-changing runtime records.
+.telemetry/
+benchmarks/results/*
+!benchmarks/results/.gitkeep
