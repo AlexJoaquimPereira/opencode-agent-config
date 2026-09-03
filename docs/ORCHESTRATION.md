@@ -4,7 +4,7 @@ How the system decides who does what, when — deterministically, with bounded f
 
 ## 1. Deterministic escalation rules
 
-The primaries (`luna/build`, `v4/build`, `dual/orchestrator`) follow explicit escalation rules. The same task shape always maps to the same delegation plan. **Specialists are never invoked en masse** — each escalation adds only the agents the task shape requires.
+The primaries (`luna/build`, `v4/build`, `glm/build`, `dual/orchestrator`) follow explicit escalation rules. The same task shape always maps to the same delegation plan. **Specialists are never invoked en masse** — each escalation adds only the agents the task shape requires.
 
 | Task shape | Pipeline |
 |---|---|
@@ -48,7 +48,39 @@ Rules around the contract:
 - **Verifiable**: every section must be checkable against repository evidence.
 - **Amendable/rejectable**: the builder must inspect the repo and, if the contract conflicts with repository evidence, amend or reject it before implementing.
 
-## 3. Mode C pipeline (two-model)
+## 3. Cross-family escalation contract (not a router)
+
+Single-model builders (`v4/build`, `glm/build`) stay single-model: they only call their own family's specialists. When a task genuinely needs a different model family, they finish with their best validated state and emit the shared **escalation contract** — defined in full in `docs/ESCALATION.md`:
+
+```
+## Escalation
+STATUS: CONTINUE | ESCALATE | BLOCKED
+TARGET: NONE | V4 | GLM | LUNA
+REASON: ARCHITECTURE | DEBUGGING | SECURITY | COMPLEXITY |
+        REPEATED_FAILURE | CONTEXT_LIMIT | MODEL_UNCERTAINTY |
+        EXTERNAL_DEPENDENCY | QUALITY_REVIEW
+SEVERITY: LOW | MEDIUM | HIGH | CRITICAL
+
+EVIDENCE:
+- ...
+
+LAST_VALIDATION:
+- command:
+- result:
+
+RECOMMENDED_HANDOFF:
+- ...
+```
+
+Rules:
+
+- **Compact**: fixed enums, concrete evidence, no narrative, no transcripts, no pricing/scheduling/telemetry.
+- **Descriptive, not routing**: emitting `ESCALATE` does not spawn a cross-model agent. The permission model prevents it. The contract records the handoff point.
+- **Same schema across V4 and GLM builders**, so a future router can consume either family's output identically.
+- **Handoff discipline**: carries only task, state, changed files, validation failure/error output, reason, severity, constraints — never chain-of-thought or full transcripts (keeps the fresh-session handoff cheap).
+- Today, when a builder emits `ESCALATE`/`BLOCKED`, the caller/user reads the contract and selects the next model manually. Routing is future work.
+
+## 4. Mode C pipeline (two-model)
 
 ```
 request
@@ -90,7 +122,7 @@ request
 - Not security-sensitive: skip security-review.
 - Builder's validation is authoritative: skip reviewer only when the change is tiny and the builder's test output is unambiguous (still default to review for multi-file changes).
 
-## 4. Failure / recovery behavior
+## 5. Failure / recovery behavior
 
 | Failure | Detection | Recovery |
 |---|---|---|
@@ -105,11 +137,11 @@ request
 
 **Boundedness invariant:** with `subagent_depth: 1`, only the primary can spawn; subagents cannot spawn. The orchestrator's allowlist names exactly 9 specialists. Therefore the worst-case delegation graph is: 1 primary → ≤9 leaves, one level deep. No uncontrolled recursion is possible.
 
-## 5. Why orchestration is V4
+## 6. Why orchestration is V4
 
 The orchestrator's work is routing and synthesis — broad and cheap. Running it on V4 keeps Mode C economical, keeps judgment work (implementation, review) on Luna, and keeps the orchestrator's own prefix small and cache-stable. It is also why the orchestrator is **read-only and bash-restricted**: it has no reason to mutate or run commands, so it simply cannot.
 
-## 6. Concurrency
+## 7. Concurrency
 
 All delegation is **sequential** by default: recon → research → plan → build → review. This is deliberate:
 
