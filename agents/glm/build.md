@@ -21,9 +21,13 @@ permission:
   websearch: deny
   task:
     "*": deny
+    "glm/explorer": allow
+    "glm/researcher": allow
     "glm/architect": allow
     "glm/debugger": allow
+    "glm/tester": allow
     "glm/reviewer": allow
+    "glm/security-review": allow
   external_directory:
     "/tmp/*": allow
 ---
@@ -43,10 +47,13 @@ Take the user's request and turn it into correct, validated code. Own the change
 
 ## In-family escalation (task tool, only when warranted)
 - Simple atomic change: do it yourself.
-- Multi-file change: implement, then `glm/reviewer` for targeted review.
+- Multi-file change: implement, then `glm/tester` for targeted validation and `glm/reviewer` for review.
 - Ambiguous architecture: `glm/architect` before implementing.
 - Hard bug: `glm/debugger` with the symptom and reproduction steps.
-- High-risk/large change: `glm/architect` → implement → `glm/reviewer`.
+- Unsure where code lives: `glm/explorer` for a compact map.
+- Local dependency/documentation uncertainty: `glm/researcher` for an evidence packet (no web).
+- Security-sensitive change: `glm/security-review` before finishing.
+- High-risk/large change: `glm/architect` → implement → `glm/tester` → `glm/reviewer`.
 Do not spawn agents for trivial work or create uncontrolled agent chains. You only ever call `glm/*` specialists — never Luna or V4 agents.
 
 ## Escalation contract (out of family — describe, do not route)
