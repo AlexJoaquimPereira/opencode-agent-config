@@ -28,7 +28,7 @@ Each family is a first-class, **independently selectable** set of agents: `v4/*`
 - Difficult autonomous coding where V4 would likely need many iterations.
 - Difficult debugging whose failure consequence is not critical.
 - The intermediate-quality/complexity tier between ordinary V4 execution and high-assurance Luna work.
-- No web by default: GLM works from repository/local evidence; genuine web research is routed to V4.
+- Role-appropriate web: GLM may use the web where the specialist role benefits (build, researcher, architect, debugger, tester, reviewer, security-review) — repo-first, restricted per role. `glm/explorer` is repo-only.
 
 ### Luna — high-risk, architecture, difficult reasoning, final escalation
 
@@ -47,7 +47,7 @@ The `dual/orchestrator` workflow is a **separate manual path**: deterministic V4
 - `v4/*` remains V4-only; `luna/*` remains Luna-only; `glm/*` remains GLM-only; `dual/*` keeps its V4→Luna workflow; `route/*` is the only cross-model router.
 - No specialist is a generic model alias: each keeps its concrete responsibility and permission shape.
 - Cross-model delegation is centralized in `route/orchestrator`. Specialist agents never gain task permissions for another family (no `glm/*`→`luna/*`, no `luna/*`→`v4/*`, etc.), except existing in-family delegation.
-- No GLM agent has web access; Luna has no web access in any mode.
+- GLM web is role-appropriate: allowed on builders/researchers/architects/debuggers/testers/reviewers/security-review (repo-first), denied on `glm/explorer` (repo-only). Luna has no web access in any mode. The router and dual conductor deny web (research is delegated).
 
 ## 4. Escalation semantics
 
@@ -62,8 +62,16 @@ V4  ──failure/needs-depth──▶  GLM  ──failure──▶  LUNA
 - V4 failure driven by implementation complexity → GLM.
 - V4 failure driven by architecture/security/critical severity → Luna.
 - GLM failure → Luna (final tier).
-- Bounded: one cross-model escalation step after the first builder, and one after GLM; the path terminates in `SUCCESS` or `BLOCKED`. No V4→GLM→V4→GLM or V4→GLM→Luna→GLM loops.
+- Bounded: maximum cross-model escalation depth is **2**. Allowed: V4→GLM, V4→Luna, GLM→Luna, V4→GLM→Luna. Forbidden: Luna→GLM, Luna→V4, GLM→V4, and any cycle. The path terminates in `SUCCESS` or `BLOCKED`.
 
-## 5. What is out of scope
+## 5. Telemetry, cost, and scheduling policy (non-routing layers)
 
-Telemetry, cost dashboards, usage collection, automated cost/success calculations, off-peak scheduling, direct-provider launchers, time-zone logic, automatic provider benchmarking/quantization/price scraping, and any model family other than V4/GLM/Luna are **not** part of the model policy. They are later phases.
+Measurement and scheduling are **external layers** — they never alter the model policy above and never enter model prompts.
+
+- **Telemetry**: measure tokens, cache (read/write), cost, success, escalation, and human intervention per task/attempt (`.telemetry/`, git-ignored).
+- **Cost**: optimize **cost per successful task**, not price per million tokens (`docs/COST-METRICS.md`, `config/model-pricing.json`).
+- **Scheduling**: direct DeepSeek is a separate **off-peak batch path** (IST weekday peak windows 06:30–09:30 and 11:30–15:30) used only for explicit batch/background work (`scripts/opencode-direct-deepseek.mjs`). Interactive `route/orchestrator` is never clock-routed.
+
+## 6. What is out of scope
+
+Learned/automatic routing thresholds, automatic provider benchmarking/quantization/price scraping, automatic model selection from benchmark statistics, a default `route/orchestrator`, and any model family other than V4/GLM/Luna. These are later phases; this phase only collects the data they will need.
