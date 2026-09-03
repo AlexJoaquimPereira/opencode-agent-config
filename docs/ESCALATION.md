@@ -56,8 +56,8 @@ RECOMMENDED_HANDOFF:
 | `COMPLEXITY` | `GLM` first, then `LUNA` | Task complexity exceeds V4's reliable depth; GLM is the intermediate tier; Luna is final. |
 | `REPEATED_FAILURE` | `GLM` first, then `LUNA` | A fresh, stronger model is warranted; escalate one tier at a time. |
 | `CONTEXT_LIMIT` | `NONE` (report) | The agent is out of context; compact the session / hand to a fresh session of the same or another family, not a routing fix. |
-| `MODEL_UNCERTAINTY` | `V4` | Unverifiable from repo + no web on this model; V4 can research (when web is available). |
-| `EXTERNAL_DEPENDENCY` | `V4` | External API/framework/dependency behavior unknown; V4 research resolves it. |
+| `MODEL_UNCERTAINTY` | `V4` (or resolve in-family if the emitting model has web) | Unverifiable from repo; V4 researchers are the established web-research role (GLM may also research, so it should resolve in-family first). |
+| `EXTERNAL_DEPENDENCY` | `V4` (or resolve in-family if the emitting model has web) | External API/framework/dependency behavior unknown; V4 research resolves it, and GLM with web may research directly before escalating. |
 | `QUALITY_REVIEW` | `LUNA` | A high-confidence final review is required before the work is considered done. |
 
 These are defaults, not a routing algorithm. `route/orchestrator` maps the contract to a concrete next tier per ROUTING.md; cost, availability, and cache-aware optimization are out of scope for the contract itself. The tier ladder is V4 → GLM → Luna with a hard bound of one cross-model step after each tier; GLM is intermediate, Luna is final.
