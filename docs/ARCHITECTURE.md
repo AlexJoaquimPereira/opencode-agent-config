@@ -15,7 +15,7 @@ The harness maximizes, in rough priority order:
 7. resistance to context pollution;
 8. reliability across arbitrary programming projects.
 
-Two constraints shape everything: **GPT-5.6 Luna has no web access** (hard requirement) and **GLM-5.3 Flash is web-free by default** (self-contained family), and **context is expensive** for all models, so agents must carry high information density rather than maximum context utilization.
+Two constraints shape everything: **GPT-5.6 Luna has no web access** (hard requirement) and **GLM-5.3 Flash has role-appropriate web access** (repo-first, used only where the specialist role benefits), and **context is expensive** for all models, so agents must carry high information density rather than maximum context utilization.
 
 ## 2. Operating modes
 
@@ -24,7 +24,7 @@ The user runs several configurations. Each single-model family is a first-class,
 - **Mode A — Luna only.** Primary: `luna/build`. Deep implementation, debugging, testing, review, architecture. No web, by design.
 - **Mode B — V4 Flash only.** Primary: `v4/build`. Fast, cheap implementation with web research available but discouraged unless repository evidence is insufficient.
 - **Mode C — Two-model (Luna + V4).** Primary: `dual/orchestrator`. Deterministic V4-plan/Luna-execute high-assurance workflow; a separate manual path, independent of the router.
-- **Mode D — GLM Flash only.** Primary: `glm/build`. Fast, self-contained implementation (build, explorer, researcher, architect, debugger, tester, reviewer, security-review) with no web by default.
+- **Mode D — GLM Flash only.** Primary: `glm/build`. Fast, self-contained implementation (build, explorer, researcher, architect, debugger, tester, reviewer, security-review) with role-appropriate web access (repo-first).
 - **Mode R — Multi-model router.** Primary: `route/orchestrator`. Adaptive routing across V4 (default workhorse), GLM (intermediate), and Luna (high-assurance). Selecting it is the only way to get automatic cross-model behavior.
 
 Because models may be used together, every agent declares an explicit `model`, so delegation is deterministic regardless of which primary spawned the subagent.
@@ -95,14 +95,14 @@ Primaries are the only agents that spawn subagents. OpenCode's default `subagent
 | Agent | Responsibility | Exists because |
 |---|---|---|
 | `glm/explorer` | Read-only repo mapping and Q&A | GLM builders need a compact repo map before touching code. |
-| `glm/researcher` | **Local-only** dependency/docs research (no web) | GLM resolves external questions from repo + installed sources; web research stays a V4 role. |
+| `glm/researcher` | **Local-first** dependency/docs research (web allowed, repo first) | GLM resolves external questions from repo, installed sources, then web; used as a GLM-tier researcher. |
 | `glm/architect` | Read-only architecture decision memo | Ambiguous GLM-only changes need design analysis before implementation. |
 | `glm/debugger` | Root-cause fixing with runtime evidence | Hard GLM-only bugs need reproduce→isolate→fix discipline. |
 | `glm/tester` | Progressive validation, test writing (test files only) | Test quality for the GLM-only mode. |
 | `glm/reviewer` | Diff review with severity classification | Independent review in Mode D. |
-| `glm/security-review` | Security audit of code/diffs (local analysis) | Security pass in Mode D; no web by default. |
+| `glm/security-review` | Security audit of code/diffs | Security pass in Mode D; web only to confirm advisories/CVEs. |
 
-Each GLM specialist is a standalone GLM-only agent: it runs GLM-5.3 Flash, never routes to Luna/V4, and has no web by default.
+Each GLM specialist is a standalone GLM-only agent: it runs GLM-5.3 Flash, never routes to Luna/V4, and has role-appropriate web access (repo-first; only `glm/explorer` is repo-only by design, mirroring `v4/explorer`).
 
 **Router (Mode R):**
 
@@ -126,7 +126,7 @@ Per the requirement to avoid persona-flavored agents:
 - **Performance specialist** — performance analysis is folded into the reviewer/architect workflows; a dedicated agent adds latency without clear benefit for general repos.
 - **Migration specialist** — migration is a phase of the architecture workflow (`luna/architect` covers migration + validation).
 - **Release/CI specialist** — CI/release logic is inherently project-specific; that belongs in the project's `AGENTS.md`, not global agents.
-- **Dependency/API researcher** — external web research is folded into `v4/researcher` / `dual/v4-researcher`; GLM has a **local-only** `glm/researcher` that investigates repo + installed sources without the web.
+- **Dependency/API researcher** — external web research is served by `v4/researcher`, `dual/v4-researcher`, and `glm/researcher` (each repo-first, then official docs/web). GLM researchers may use web like their V4 counterparts.
 
 ## 5. Delegation and nesting
 
@@ -175,4 +175,5 @@ The key property: **the planner is never authoritative**. `luna/build` is explic
 
 - `agents/` — only real agents. Any `.md` here becomes an agent (default `mode: all`), so **README.md and docs are kept outside** `agents/`. Subdirectories scope families: `agents/luna/*`, `agents/v4/*`, `agents/glm/*`, `agents/dual/*`, `agents/route/*`.
 - `README.md`, `docs/` — documentation, stored at the OpenCode config directory root, the parent of `agents/`.
+- External measurement/scheduling layers (not part of the agent graph, never injected into model context): `config/model-pricing.json` (cost-accounting assumptions), `plugins/opencode-telemetry.ts` (optional append-only telemetry writing `.telemetry/`), `scripts/` (cost analyzer, off-peak direct-DeepSeek batch launcher, routing dry-run), `benchmarks/` (real-task harness). `.telemetry/` and `benchmarks/results/` are git-ignored runtime data.
 - Project-specific behavior — lives in the project's `AGENTS.md`, never in these global agents.
