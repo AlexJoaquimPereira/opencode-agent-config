@@ -1,6 +1,6 @@
 # OpenCode Multi-Model Engineering Harness
 
-A general-purpose, model-aware agent system for OpenCode V2 that runs on three model families — **GPT-5.6 Luna** (deep implementation), **DeepSeek V4 Flash** (fast planning/research), and **GLM-5.3 Flash** (fast self-contained implementation) — independently or, later, together.
+A general-purpose, model-aware agent system for OpenCode V2 that runs on three model families — **GPT-5.6 Luna** (deep implementation), **DeepSeek V4 Flash** (fast planning/research), and **GLM-5.3 Flash** (difficult autonomous coding) — independently or, via the router, together. It also ships external measurement layers: task/attempt telemetry, cost accounting, a benchmark harness, and an off-peak direct-DeepSeek batch path.
 
 The system behaves like a small software-engineering organization: builders, architects, explorers, debuggers, testers, reviewers, security reviewers, and a two-model orchestrator. It is reusable across arbitrary repositories with no project-specific customization. Project behavior belongs in the project's `AGENTS.md`, not here.
 
@@ -15,6 +15,7 @@ The system behaves like a small software-engineering organization: builders, arc
 │   ├── MODEL-STRATEGY.md
 │   ├── MODEL-POLICY.md
 │   ├── PROVIDER-POLICY.md
+│   ├── COST-METRICS.md
 │   ├── PERMISSIONS.md
 │   ├── ORCHESTRATION.md
 │   ├── ROUTING.md
@@ -23,43 +24,55 @@ The system behaves like a small software-engineering organization: builders, arc
 │   ├── CACHE-STRATEGY.md
 │   ├── INSTALLATION.md
 │   └── OPERATING-GUIDE.md
-└── agents/              ← auto-discovered agent definitions
-    ├── luna/            ← Mode A: Luna-only specialists
-    │   ├── build.md             (primary)
-    │   ├── architect.md
-    │   ├── explorer.md
-    │   ├── debugger.md
-    │   ├── tester.md
-    │   ├── reviewer.md
-    │   └── security-review.md
-    ├── v4/              ← Mode B: V4 Flash-only specialists
-    │   ├── build.md             (primary)
-    │   ├── planner.md
-    │   ├── explorer.md
-    │   ├── researcher.md
-    │   ├── debugger.md
-    │   ├── tester.md
-    │   ├── reviewer.md
-    │   └── security-review.md
-    ├── glm/             ← GLM-5.3 Flash-only specialists
-    │   ├── build.md             (primary)
-    │   ├── explorer.md
-    │   ├── researcher.md
-    │   ├── architect.md
-    │   ├── debugger.md
-    │   ├── tester.md
-    │   ├── reviewer.md
-    │   └── security-review.md
-    ├── dual/            ← Mode C: two-model orchestration
-    │   ├── orchestrator.md      (primary)
-    │   ├── v4-planner.md
-    │   ├── v4-researcher.md
-    │   └── luna-reviewer.md
-    └── route/           ← Multi-model router
-        └── orchestrator.md      (primary)
+├── agents/              ← auto-discovered agent definitions
+│   ├── luna/            ← Mode A: Luna-only specialists
+│   │   ├── build.md             (primary)
+│   │   ├── architect.md
+│   │   ├── explorer.md
+│   │   ├── debugger.md
+│   │   ├── tester.md
+│   │   ├── reviewer.md
+│   │   └── security-review.md
+│   ├── v4/              ← Mode B: V4 Flash-only specialists
+│   │   ├── build.md             (primary)
+│   │   ├── planner.md
+│   │   ├── explorer.md
+│   │   ├── researcher.md
+│   │   ├── debugger.md
+│   │   ├── tester.md
+│   │   ├── reviewer.md
+│   │   └── security-review.md
+│   ├── glm/             ← GLM-5.3 Flash-only specialists
+│   │   ├── build.md             (primary)
+│   │   ├── explorer.md          (repo-only, no web)
+│   │   ├── researcher.md
+│   │   ├── architect.md
+│   │   ├── debugger.md
+│   │   ├── tester.md
+│   │   ├── reviewer.md
+│   │   └── security-review.md
+│   ├── dual/            ← Mode C: two-model orchestration
+│   │   ├── orchestrator.md      (primary)
+│   │   ├── v4-planner.md
+│   │   ├── v4-researcher.md
+│   │   └── luna-reviewer.md
+│   └── route/           ← Multi-model router
+│       └── orchestrator.md      (primary)
+├── config/              ← machine-readable accounting data
+│   └── model-pricing.json       (cost assumptions, not routing)
+├── plugins/             ← optional measurement plugins
+│   └── opencode-telemetry.ts    (append-only task/attempt telemetry)
+├── scripts/             ← analysis + scheduling tooling
+│   ├── analyze-cost.mjs
+│   ├── opencode-direct-deepseek.mjs   (off-peak IST batch launcher)
+│   └── opencode-route-dryrun.mjs      (no-token routing preview)
+├── benchmarks/          ← real-task benchmark harness
+│   ├── tasks/  scenarios/  run.mjs  analyze.mjs  README.md
+│   └── results/          (git-ignored run output)
+└── .telemetry/          (git-ignored append-only task/attempt JSONL)
 ```
 
-> **Placement note:** agents live under `agents/` because OpenCode discovers every `.md` file there as an agent. README and docs deliberately live **outside** `agents/` so they are not parsed as agents.
+> **Placement note:** agents live under `agents/` because OpenCode discovers every `.md` file there as an agent. README and docs deliberately live **outside** `agents/` so they are not parsed as agents. `.telemetry/` and `benchmarks/results/` are git-ignored because they are continuously-changing runtime data.
 
 ## Quick start
 
@@ -80,7 +93,7 @@ Each single-model primary (`luna/build`, `v4/build`, `glm/build`) is independent
 | A — Luna only | `luna/build` | GPT-5.6 Luna | Highest-quality implementation, no web access |
 | B — V4 Flash only | `v4/build` | DeepSeek V4 Flash | Cheap and fast, occasional web research |
 | C — Two-model | `dual/orchestrator` | V4 Flash conductor, Luna builder/reviewer | Deterministic V4→Luna high-assurance workflow |
-| D — GLM Flash only | `glm/build` | GLM-5.3 Flash | Cheap and fast, self-contained, no web |
+| D — GLM Flash only | `glm/build` | GLM-5.3 Flash | Cheap and fast, self-contained; role-appropriate web |
 | R — Router | `route/orchestrator` | V4 Flash conductor (routes V4/GLM/Luna) | Adaptive: default V4, GLM for difficult coding, Luna for high-risk |
 
 ## Agent naming
@@ -96,7 +109,8 @@ Each model family's agents (`luna/*`, `v4/*`, `glm/*`) remain independently sele
 - **docs/MODEL-STRATEGY.md** — why each model is assigned to each role; reasoning, cost, latency tradeoffs.
 - **docs/MODEL-POLICY.md** — qualitative role of each model family and isolation guarantees.
 - **docs/ROUTING.md** — the actual routing matrix used by `route/orchestrator`.
-- **docs/PROVIDER-POLICY.md** — provider-layer strategy per model (no automation yet).
+- **docs/PROVIDER-POLICY.md** — provider-layer architecture: router chooses the model, configuration chooses the provider; session-stable, no fallback.
+- **docs/COST-METRICS.md** — telemetry-driven cost accounting and success-adjusted metrics.
 - **docs/PERMISSIONS.md** — least-privilege rationale for every permission block.
 - **docs/ORCHESTRATION.md** — the deterministic escalation rules, the dual two-model pipeline, and Mode R adaptive routing.
 - **docs/ESCALATION.md** — the shared cross-family escalation contract used by single-model builders.
@@ -105,11 +119,21 @@ Each model family's agents (`luna/*`, `v4/*`, `glm/*`) remain independently sele
 - **docs/INSTALLATION.md** — prerequisites, install, config, verification steps.
 - **docs/OPERATING-GUIDE.md** — day-to-day usage, failure/recovery, extension.
 
+## Operational tooling (measurement & scheduling layers)
+
+These do **not** alter routing or single-model UX; they observe and execute around the agents:
+
+- **Telemetry** — `plugins/opencode-telemetry.ts` records append-only task/attempt JSONL to `<project>/.telemetry/` (git-ignored). Never injected into model context.
+- **Cost** — `config/model-pricing.json` (accounting assumptions) + `scripts/analyze-cost.mjs` → attempt/task cost and success-adjusted metrics (docs/COST-METRICS.md).
+- **Benchmarks** — `benchmarks/` real-task harness comparing V4/GLM/Luna single-model agents and route ladders (`benchmarks/README.md`).
+- **Off-peak DeepSeek batch** — `scripts/opencode-direct-deepseek.mjs` (refuses direct-DeepSeek batch inside IST weekday peak windows; `--check`/`--override`).
+- **Dry-run** — `scripts/opencode-route-dryrun.mjs` prints the routing decision without spending tokens.
+
 ## Design principles
 
 1. **Evidence over plausibility.** Compiler/test/runtime output is authoritative. No agent claims completion without validation evidence.
 2. **Least privilege.** Read-only agents never edit; reviewers never edit; researchers never edit; builders hold full but guarded permissions.
 3. **Deterministic escalation.** Primaries follow explicit escalation rules, and the router owns bounded cross-model escalation — no random agent proliferation, no uncontrolled recursive agent trees.
 4. **Context discipline.** Focused reads, structured contracts instead of transcripts, no restating history. The harness's compaction handles context management; agents just stay efficient before it triggers.
-5. **Model honesty.** Luna and GLM have no web permission by design; V4 researchers use web access only when repository evidence is insufficient.
+5. **Model honesty.** Luna has no web permission by design; GLM uses web only where its role benefits (repo-first); V4 researchers use web only when repository evidence is insufficient.
 6. **Centralized routing.** `route/orchestrator` is the only cross-model router; every single-model agent and the dual workflow remain directly selectable without it.
