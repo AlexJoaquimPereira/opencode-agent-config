@@ -106,7 +106,25 @@ When a specialist returns `STATUS: ESCALATE`, read `REASON` + `SEVERITY` and rou
 - `CONTEXT_LIMIT` → do not re-route on model tier; start a fresh session and continue with the same chosen family.
 - `STATUS: BLOCKED` → do not loop. Report `BLOCKED` to the user with the evidence; a router cannot fix missing credentials or an impossible requirement.
 
-**Bounded escalation invariant:** at most **one** cross-model escalation after the first builder, and **one** after GLM. Never route V4→GLM→V4→GLM or V4→GLM→Luna→GLM. The model path must terminate in `SUCCESS` or `BLOCKED`. If a second-tier model fails, the path ends at **Luna** (the final tier); if Luna fails, report `BLOCKED` — do not keep iterating.
+**Bounded escalation invariant:** at most **one** cross-model escalation after the first builder, and **one** after GLM. The model path must terminate in `SUCCESS` or `BLOCKED`. If a second-tier model fails, the path ends at **Luna** (the final tier); if Luna fails, report `BLOCKED` — do not keep iterating.
+
+### Escalation depth and allowed paths (hard limit)
+
+Maximum cross-model escalation depth = **2**. The only allowed paths are:
+
+```
+V4 → GLM
+V4 → Luna
+GLM → Luna
+V4 → GLM → Luna        (full route, only when justified)
+```
+
+Forbidden (never route):
+- Luna → GLM, Luna → V4 (Luna is the final tier; nothing follows it)
+- GLM → V4 (never step back down the ladder)
+- GLM → GLM / V4 → V4 recursive chains, or any cycle (V4→GLM→V4→GLM, V4→GLM→Luna→GLM)
+
+In-family specialist delegation inside a single builder session (e.g. a GLM builder calling `glm/tester`) is not a cross-model escalation and does not count against the depth limit. Depth is counted only across model-family changes that you (the router) cause.
 
 ## Direct Luna path (no V4/GLM first)
 
