@@ -5,10 +5,12 @@ Complete reference for every agent: responsibility, model, permissions, step bud
 ## Legend
 
 - **Mode**: `primary` = selectable directly / can spawn subagents; `subagent` = invoked by primaries or via `@mention`.
-- **Model**: `Luna` = `openrouter/openai/gpt-5.6-luna`; `V4` = `openrouter/deepseek/deepseek-v4-flash-0731`.
+- **Model**: `Luna` = `openrouter/openai/gpt-5.6-luna`; `V4` = `openrouter/deepseek/deepseek-v4-flash-0731`; `GLM` = `openrouter/z-ai/glm-5.3-flash`.
 - **Steps**: max agentic iterations before forced text-only response (harness `steps` config).
 - **Web**: webfetch/websearch permission.
-- **Temp**: temperature (only V4 supports it; Luna omits it).
+- **Temp**: temperature (only V4 and GLM support it; Luna omits it).
+
+Model families in this harness: **DeepSeek V4 Flash**, **GPT-5.6 Luna**, **GLM-5.3 Flash**. Each family's agents are independently selectable and never route cross-family work themselves. Cross-model routing (a router that consumes the escalation contract) is **not implemented yet**.
 
 ## Mode A — Luna only
 
@@ -207,6 +209,64 @@ Evidence packet producer feeding the contract. Model V4, temp 0.3, web `allow`, 
 | Invoke when | End of the Mode C pipeline, after `luna/build` reports done. |
 
 Responsibility: verify contract compliance, repository truth, and validation claims independently. Verdict: `ACCEPT` / `ACCEPT WITH CHANGES` / `REJECT`.
+
+## Mode D — GLM Flash only
+
+GLM-5.3 Flash is a fast, self-contained family: no web by default and no cross-model delegation. Each agent is a standalone GLM-only agent.
+
+### `glm/build` — primary implementation engineer (GLM)
+
+| Field | Value |
+|---|---|
+| Mode / Model | `primary` / GLM |
+| Steps / Temp | 120 / 0.2 |
+| Web | `deny` |
+| Edits | `allow` |
+| Bash | `allow`, guarded as `luna/build` |
+| Task (spawn) | `glm/architect`, `glm/debugger`, `glm/reviewer` |
+| Invoke when | Any implementation in Mode D. |
+
+Responsibility: same implementation loop as `luna/build`/`v4/build`, but GLM-only and web-free. Runs standalone when selected directly. When a task genuinely warrants Luna or V4 (deep reasoning, security review, or web research it cannot do), it finishes with its best validated state and emits the shared **escalation contract** (`docs/ESCALATION.md`) in its report — it never routes cross-model itself.
+
+### `glm/architect` — read-only architecture analysis
+
+| Field | Value |
+|---|---|
+| Mode / Model | `subagent` / GLM |
+| Steps / Temp | 40 / 0.2 |
+| Web | `deny` |
+| Edits | `deny` |
+| Bash | git read-only + `rg`/`ls` |
+| Task | none |
+| Invoke when | Ambiguous architectural change in a GLM-only workflow; produces a handoff memo for the builder. |
+
+### `glm/debugger` — root-cause debugging
+
+| Field | Value |
+|---|---|
+| Mode / Model | `subagent` / GLM |
+| Steps / Temp | 50 / 0.2 |
+| Web | `deny` |
+| Edits | `allow` (fixes) |
+| Bash | `allow`, guarded (`git push*` → `deny`, `sudo*` → `deny`) |
+| Task | none |
+| Invoke when | Non-trivial bug in a GLM-only workflow. |
+
+Responsibility: reproduce → isolate → hypothesize → test hypothesis → fix root cause → re-reproduce → regression test, on execution evidence, GLM-only, no web.
+
+### `glm/reviewer` — code review
+
+| Field | Value |
+|---|---|
+| Mode / Model | `subagent` / GLM |
+| Steps / Temp | 40 / 0.2 |
+| Web | `deny` |
+| Edits | `deny` |
+| Bash | git read-only + test commands |
+| Task | none |
+| Invoke when | Multi-file or high-risk changes completed by `glm/build`; final quality gate in Mode D. |
+
+Responsibility: same review workflow as `luna/reviewer`/`v4/reviewer` (inspect diff → trace → defects → severity → corrections; verdict `APPROVED` / `APPROVE WITH CHANGES` / `CHANGES REQUIRED`), GLM-only, no web.
 
 ## Why these exact agents
 
