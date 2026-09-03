@@ -4,7 +4,7 @@ How the system decides who does what, when — deterministically, with bounded f
 
 ## 1. Deterministic escalation rules
 
-The primaries (`luna/build`, `v4/build`, `glm/build`, `dual/orchestrator`) follow explicit escalation rules. The same task shape always maps to the same delegation plan. **Specialists are never invoked en masse** — each escalation adds only the agents the task shape requires.
+The primaries (`luna/build`, `v4/build`, `glm/build`, `dual/orchestrator`, `route/orchestrator`) follow explicit escalation rules. The same task shape always maps to the same delegation plan. **Specialists are never invoked en masse** — each escalation adds only the agents the task shape requires. Single-model primaries escalate only within their own family (or emit the escalation contract); `dual/orchestrator` and `route/orchestrator` are the cross-model conductors (Modes C and R).
 
 | Task shape | Pipeline |
 |---|---|
@@ -16,6 +16,7 @@ The primaries (`luna/build`, `v4/build`, `glm/build`, `dual/orchestrator`) follo
 | Security-sensitive change | Builder → security-review |
 | High-risk / large change | Planner → builder → tester → reviewer |
 | Two-model (Mode C) | V4 recon/research/plan → Luna build → Luna review |
+| Adaptive routing (Mode R) | Router classifies → V4/GLM/Luna per ROUTING.md → bounded escalation |
 
 Classification heuristics (in the builder prompts):
 
@@ -48,7 +49,7 @@ Rules around the contract:
 - **Verifiable**: every section must be checkable against repository evidence.
 - **Amendable/rejectable**: the builder must inspect the repo and, if the contract conflicts with repository evidence, amend or reject it before implementing.
 
-## 3. Cross-family escalation contract (not a router)
+## 3. Cross-family escalation contract
 
 Single-model builders (`v4/build`, `glm/build`) stay single-model: they only call their own family's specialists. When a task genuinely needs a different model family, they finish with their best validated state and emit the shared **escalation contract** — defined in full in `docs/ESCALATION.md`:
 
@@ -76,9 +77,9 @@ Rules:
 
 - **Compact**: fixed enums, concrete evidence, no narrative, no transcripts, no pricing/scheduling/telemetry.
 - **Descriptive, not routing**: emitting `ESCALATE` does not spawn a cross-model agent. The permission model prevents it. The contract records the handoff point.
-- **Same schema across V4 and GLM builders**, so a future router can consume either family's output identically.
+- **Same schema across V4 and GLM builders**, so the router can consume either family's output identically.
 - **Handoff discipline**: carries only task, state, changed files, validation failure/error output, reason, severity, constraints — never chain-of-thought or full transcripts (keeps the fresh-session handoff cheap).
-- Today, when a builder emits `ESCALATE`/`BLOCKED`, the caller/user reads the contract and selects the next model manually. Routing is future work.
+- Under **`route/orchestrator`** (Mode R), an emitted `ESCALATE`/`BLOCKED` contract drives the bounded next-tier route (see §5 and ROUTING.md). Run standalone (or under `dual/orchestrator`), the caller/user reads the contract and selects the next model manually.
 
 ## 4. Mode C pipeline (two-model)
 
@@ -122,7 +123,40 @@ request
 - Not security-sensitive: skip security-review.
 - Builder's validation is authoritative: skip reviewer only when the change is tiny and the builder's test output is unambiguous (still default to review for multi-file changes).
 
-## 5. Failure / recovery behavior
+## 5. Mode R — adaptive routing (`route/orchestrator`)
+
+`route/orchestrator` is a separate, general-purpose multi-model router. Where Mode C is a fixed V4→Luna pipeline, Mode R classifies each request and picks a tier:
+
+```
+request
+  │
+  ├─ classify (V4 default; GLM intermediate; Luna high-risk/architecture)
+  │
+  ├─(if repo unfamiliar)──▶ v4/explorer (cheap recon)
+  ├─(if external facts needed)──▶ v4/researcher
+  │
+  ├─ normal / non-trivial ──▶ v4/build → (v4/tester|v4/reviewer)
+  ├─ complex-but-conventional ──▶ (v4/planner) → glm/build → (glm/tester|glm/reviewer)
+  ├─ architecture / security / critical ──▶ v4/planner → luna/build | luna/architect
+  │                                                          → luna/security-review (security)
+  │
+  ├─(builder returns ESCALATE)──▶ inspect contract → next tier (bounded)
+  │     V4 → GLM (complexity/debug) | Luna (architecture/security/critical)
+  │     GLM → Luna (final tier)
+  │     BLOCKED → report BLOCKED; never loop
+  │
+  └─▶ report (## Routed result)
+```
+
+Rules (also see ROUTING.md):
+
+- **Planning is conditional**: never `route → planner → builder` unconditionally. Simple/normal tasks skip the planner. Planner tokens are only spent where the target tier (GLM/Luna) will actually use the contract.
+- **Bounded escalation**: one cross-model step after the first builder, one after GLM; the path terminates in `SUCCESS` or `BLOCKED`. No V4→GLM→V4→GLM, V4→GLM→Luna→GLM, or other recursion.
+- **Escalation contract is the interface**: the router reads the builder-emitted contract (`docs/ESCALATION.md`) and routes by `REASON`/`SEVERITY`; it never invents a second protocol.
+- **Handoff discipline**: the router forwards compact contracts/failure packets only — never its own reasoning or prior transcripts.
+- **dual/orchestrator is not part of routing**: selecting `route/orchestrator` routes among V4/GLM/Luna specialists; the fixed `dual/*` pipeline remains a separate manual high-assurance workflow.
+
+## 6. Failure / recovery behavior
 
 | Failure | Detection | Recovery |
 |---|---|---|
@@ -137,11 +171,11 @@ request
 
 **Boundedness invariant:** with `subagent_depth: 1`, only the primary can spawn; subagents cannot spawn. The orchestrator's allowlist names exactly 9 specialists. Therefore the worst-case delegation graph is: 1 primary → ≤9 leaves, one level deep. No uncontrolled recursion is possible.
 
-## 6. Why orchestration is V4
+## 7. Why the conductors run V4
 
-The orchestrator's work is routing and synthesis — broad and cheap. Running it on V4 keeps Mode C economical, keeps judgment work (implementation, review) on Luna, and keeps the orchestrator's own prefix small and cache-stable. It is also why the orchestrator is **read-only and bash-restricted**: it has no reason to mutate or run commands, so it simply cannot.
+The orchestrators' work is routing and synthesis — broad and cheap. Running it on V4 keeps orchestration economical, keeps judgment work (implementation, review, security) on the specialist tier, and keeps the conductor's own prefix small and cache-stable. It is also why both `dual/orchestrator` and `route/orchestrator` are **read-only and bash-restricted**: they have no reason to mutate or run commands, so they simply cannot.
 
-## 7. Concurrency
+## 8. Concurrency
 
 All delegation is **sequential** by default: recon → research → plan → build → review. This is deliberate:
 
