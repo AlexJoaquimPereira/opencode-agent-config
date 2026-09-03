@@ -1,6 +1,6 @@
 # Architecture
 
-This document explains how the harness is structured and why each part exists. It is the design record; companion docs cover the agent matrix, model strategy, permissions, orchestration, token efficiency, and caching.
+This document explains how the harness is structured and why each part exists. It is the design record; companion docs cover the agent matrix, model strategy, model/provider/routing policy, permissions, orchestration, token efficiency, and caching.
 
 ## 1. Goals
 
@@ -23,12 +23,13 @@ The user runs several configurations. Each single-model family is a first-class,
 
 - **Mode A — Luna only.** Primary: `luna/build`. Deep implementation, debugging, testing, review, architecture. No web, by design.
 - **Mode B — V4 Flash only.** Primary: `v4/build`. Fast, cheap implementation with web research available but discouraged unless repository evidence is insufficient.
-- **Mode C — Two-model (Luna + V4).** Primary: `dual/orchestrator`. V4 Flash plans/researches; Luna verifies, implements, and reviews.
-- **Mode D — GLM Flash only.** Primary: `glm/build`. Fast, cheap, self-contained implementation (build, architect, debugger, reviewer) with no web by default.
+- **Mode C — Two-model (Luna + V4).** Primary: `dual/orchestrator`. Deterministic V4-plan/Luna-execute high-assurance workflow; a separate manual path, independent of the router.
+- **Mode D — GLM Flash only.** Primary: `glm/build`. Fast, self-contained implementation (build, explorer, researcher, architect, debugger, tester, reviewer, security-review) with no web by default.
+- **Mode R — Multi-model router.** Primary: `route/orchestrator`. Adaptive routing across V4 (default workhorse), GLM (intermediate), and Luna (high-assurance). Selecting it is the only way to get automatic cross-model behavior.
 
 Because models may be used together, every agent declares an explicit `model`, so delegation is deterministic regardless of which primary spawned the subagent.
 
-The model families supported by this harness are **DeepSeek V4 Flash**, **GPT-5.6 Luna**, and **GLM-5.3 Flash** — no other family is referenced. Cross-model routing that includes all three families (a router) is **not implemented yet**; each family is currently used standalone or via the existing Luna+V4 orchestrator.
+The model families supported by this harness are **DeepSeek V4 Flash**, **GPT-5.6 Luna**, and **GLM-5.3 Flash** — no other family is referenced. Cross-model routing is centralized in the `route/orchestrator` router (Mode R): it selects among V4, GLM and Luna per the routing matrix (ROUTING.md). The `dual/orchestrator` (Mode C) remains a separate deterministic V4→Luna workflow.
 
 ## 3. Agent namespaces
 
@@ -39,13 +40,14 @@ agents/luna/build.md        → luna/build        (primary)
 agents/v4/planner.md        → v4/planner        (subagent)
 agents/glm/build.md         → glm/build         (primary)
 agents/dual/orchestrator.md → dual/orchestrator (primary)
+agents/route/orchestrator.md→ route/orchestrator (primary)
 ```
 
 Namespacing serves three purposes:
 
 - **No collisions.** A JSON-defined `luna` agent in `opencode.json` coexists with `luna/*` markdown agents because names differ.
 - **Task-scoped delegation.** Primary agents allow task calls via glob patterns like `luna/*`, `v4/*`, `glm/*`. Last-match-wins makes `"*": "deny"` + `"namespace/agent": "allow"` the reliable way to whitelist exactly the intended set.
-- **Model scoping.** All `luna/*` agents run GPT-5.6 Luna; all `v4/*` agents run DeepSeek V4 Flash; all `glm/*` agents run GLM-5.3 Flash; `dual/*` mixes: conductor and planners on V4, reviewers on Luna.
+- **Model scoping.** All `luna/*` agents run GPT-5.6 Luna; all `v4/*` agents run DeepSeek V4 Flash; all `glm/*` agents run GLM-5.3 Flash; `dual/*` mixes: conductor and planners on V4, reviewers on Luna; `route/orchestrator` runs V4 as conductor and is the only cross-model router.
 
 ## 4. Agent roles and why they exist
 
@@ -58,7 +60,8 @@ Only roles that map to real engineering workflows were created. Each has a concr
 | `luna/build` | Luna | Main implementation engineer for Mode A. Can be selected directly and can spawn Luna specialists. |
 | `v4/build` | V4 Flash | Main implementation engineer for Mode B. |
 | `glm/build` | GLM-5.3 Flash | Main implementation engineer for Mode D. Can be selected directly and can spawn GLM specialists. |
-| `dual/orchestrator` | V4 Flash | Conductor for Mode C. Delegates planning/research to V4 agents and implementation/review to Luna agents. Read-only by design: it never edits directly. |
+| `dual/orchestrator` | V4 Flash | Conductor for Mode C (deterministic V4→Luna). Read-only by design: it never edits directly. |
+| `route/orchestrator` | V4 Flash | Router for Mode R. The only cross-model router: adaptively selects V4/GLM/Luna per ROUTING.md. Read-only by design: it never edits directly. |
 
 Primaries are the only agents that spawn subagents. OpenCode's default `subagent_depth` is 1, which means primaries can spawn subagents but subagents cannot spawn subagents. This is **intentional and preserved**: it makes uncontrolled recursive agent trees impossible without explicit configuration.
 
@@ -91,11 +94,21 @@ Primaries are the only agents that spawn subagents. OpenCode's default `subagent
 
 | Agent | Responsibility | Exists because |
 |---|---|---|
+| `glm/explorer` | Read-only repo mapping and Q&A | GLM builders need a compact repo map before touching code. |
+| `glm/researcher` | **Local-only** dependency/docs research (no web) | GLM resolves external questions from repo + installed sources; web research stays a V4 role. |
 | `glm/architect` | Read-only architecture decision memo | Ambiguous GLM-only changes need design analysis before implementation. |
 | `glm/debugger` | Root-cause fixing with runtime evidence | Hard GLM-only bugs need reproduce→isolate→fix discipline. |
+| `glm/tester` | Progressive validation, test writing (test files only) | Test quality for the GLM-only mode. |
 | `glm/reviewer` | Diff review with severity classification | Independent review in Mode D. |
+| `glm/security-review` | Security audit of code/diffs (local analysis) | Security pass in Mode D; no web by default. |
 
 Each GLM specialist is a standalone GLM-only agent: it runs GLM-5.3 Flash, never routes to Luna/V4, and has no web by default.
+
+**Router (Mode R):**
+
+| Agent | Responsibility | Exists because |
+|---|---|---|
+| `route/orchestrator` | Adaptive multi-model router | General-purpose routing across V4/GLM/Luna is the one workflow that must not live in a single-model agent. It owns all cross-model delegation. |
 
 **Dual specialists (Mode C):**
 
@@ -113,7 +126,7 @@ Per the requirement to avoid persona-flavored agents:
 - **Performance specialist** — performance analysis is folded into the reviewer/architect workflows; a dedicated agent adds latency without clear benefit for general repos.
 - **Migration specialist** — migration is a phase of the architecture workflow (`luna/architect` covers migration + validation).
 - **Release/CI specialist** — CI/release logic is inherently project-specific; that belongs in the project's `AGENTS.md`, not global agents.
-- **Dependency/API researcher** — folded into `v4/researcher` / `dual/v4-researcher`, which cover both docs and dependency behavior.
+- **Dependency/API researcher** — external web research is folded into `v4/researcher` / `dual/v4-researcher`; GLM has a **local-only** `glm/researcher` that investigates repo + installed sources without the web.
 
 ## 5. Delegation and nesting
 
@@ -121,14 +134,15 @@ Per the requirement to avoid persona-flavored agents:
 - Specialist subagents have `task: { "*": "deny" }` — they never spawn anything. Combined with `subagent_depth: 1` (default), the delegation graph is strictly one level deep from any primary.
 - Mode C is one level deep from `dual/orchestrator`: explorer/planner/researcher on V4, builder/debugger/tester/reviewer/security-review on Luna. No agent in the pipeline spawns another.
 - GLM specialists never spawn and `glm/build` only ever calls `glm/*`. No GLM → Luna → GLM (or any recursive cross-model) chain is possible from the permission model alone: each family's primary has no task path to another family's agents.
+- Mode R is one level deep from `route/orchestrator`, the **only** cross-model router. It may call v4, glm, and luna specialists; none of those specialists may call another family back. Cross-model routing is centralized and cannot recurse.
 
-### The escalation contract (not a router)
+### The escalation contract and the router
 
-Single-model builders (`v4/build`, `glm/build`) can **describe** a cross-family handoff via the shared escalation contract (`docs/ESCALATION.md`) — a compact `STATUS / TARGET / REASON / SEVERITY / EVIDENCE / LAST_VALIDATION / RECOMMENDED_HANDOFF` block emitted in their report when the task warrants another model family. Emitting it does **not** spawn a cross-model agent (the permission model forbids it); it records the handoff point for a future router. No router exists yet.
+Single-model builders (`v4/build`, `glm/build`) emit the shared escalation contract (`docs/ESCALATION.md`) — a compact `STATUS / TARGET / REASON / SEVERITY / EVIDENCE / LAST_VALIDATION / RECOMMENDED_HANDOFF` block — when the task warrants another model family. Emitting it does **not** spawn a cross-model agent (their permissions forbid it). The `route/orchestrator` router reads the contract and performs the actual cross-model routing (see ROUTING.md); routing terminates in SUCCESS or BLOCKED with a bounded one-step escalation after each tier.
 
 ## 6. The implementation contract
 
-The contract is the single artifact passed from planner to builder (Mode C). Format:
+The contract is the single artifact passed from planner to builder (Modes C and R). Format:
 
 ```
 OBJECTIVE / SCOPE / ARCHITECTURE / FILES / DEPENDENCIES / INVARIANTS /
@@ -141,7 +155,7 @@ Why this matters:
 - It is **verifiable** — `luna/build` must check every section against repository evidence and may amend or reject it.
 - It keeps the planner **non-authoritative**, which is a hard requirement of the design.
 
-The contract schema is embedded verbatim in both `v4/planner` and `dual/v4-planner` prompts, so Mode B and Mode C produce identical artifacts.
+The contract schema is embedded verbatim in both `v4/planner` and `dual/v4-planner` prompts, so Mode B, Mode C, and Mode R produce identical artifacts.
 
 ## 7. Verification loop (Mode C)
 
@@ -159,6 +173,6 @@ The key property: **the planner is never authoritative**. `luna/build` is explic
 
 ## 8. File layout and placement
 
-- `agents/` — only real agents. Any `.md` here becomes an agent (default `mode: all`), so **README.md and docs are kept outside** `agents/`. Subdirectories scope families: `agents/luna/*`, `agents/v4/*`, `agents/glm/*`, `agents/dual/*`.
+- `agents/` — only real agents. Any `.md` here becomes an agent (default `mode: all`), so **README.md and docs are kept outside** `agents/`. Subdirectories scope families: `agents/luna/*`, `agents/v4/*`, `agents/glm/*`, `agents/dual/*`, `agents/route/*`.
 - `README.md`, `docs/` — documentation, stored at the OpenCode config directory root, the parent of `agents/`.
 - Project-specific behavior — lives in the project's `AGENTS.md`, never in these global agents.
