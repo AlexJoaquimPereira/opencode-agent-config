@@ -5,7 +5,7 @@ Least-privilege rationale for every permission block in the harness. Permission 
 ## 1. Principles
 
 1. **A role's permissions match its contract.** Read-only agents cannot edit; researchers cannot edit; reviewers cannot edit; only builders and debuggers can modify files.
-2. **Web is a capability, not a default.** Luna agents deny web by hard requirement. GLM agents deny web by default (self-contained family). V4 research/planning agents allow it; V4 repo agents and the orchestrator deny it to protect context and cache prefixes.
+2. **Web is a capability, not a default.** Luna agents deny web by hard requirement. GLM agents deny web by default (self-contained family; `glm/researcher` is local-only by design). V4 research/planning agents allow it; V4 repo agents and the orchestrators deny it to protect context and cache prefixes.
 3. **Shell is the riskiest surface.** It is allowed broadly only where the role genuinely needs it (builders, debuggers, testers), and even there, destructive patterns are gated to `ask` and dangerous ones to `deny`.
 4. **Delegation is whitelisted.** Every primary's `task` permission denies everything except its explicit specialist set; every subagent denies task entirely (they never spawn agents).
 5. **Bounded steps.** `steps` caps agentic iterations so runaway loops are structurally impossible.
@@ -39,7 +39,7 @@ permission:
 
 **Rationale:** full implementation power, but pushes are ask-first and destructive commands require confirmation. Luna and GLM builders add `external_directory: /tmp/*: allow` for temporary work. `v4/build` flips only webfetch/websearch to `allow`, because V4 may research when repo evidence is insufficient. Cross-family escalation is **described** via the escalation contract (docs/ESCALATION.md), never routed through `task` — builders only ever call their own family's specialists.
 
-### Read-only specialists (explorers, planners, architects — incl. `glm/architect`)
+### Read-only specialists (explorers, planners, architects, local researchers — incl. `glm/explorer`, `glm/researcher`, `glm/architect`)
 
 ```yaml
 permission:
@@ -65,9 +65,9 @@ permission:
     "*": deny
 ```
 
-**Rationale:** these agents build understanding; they never mutate. Bash is limited to git read-only plus `rg`/`ls` for symbol search. This prevents any write path while allowing normal exploration.
+**Rationale:** these agents build understanding; they never mutate. Bash is limited to git read-only plus `rg`/`ls` for symbol search. This prevents any write path while allowing normal exploration. `glm/researcher` denies web like its GLM siblings — only V4 researchers (v4/researcher, dual/v4-researcher) allow web.
 
-### Reviewers & security reviewers (incl. `glm/reviewer`)
+### Reviewers & security reviewers (incl. `glm/reviewer`, `glm/security-review`)
 
 ```yaml
 permission:
@@ -127,7 +127,7 @@ permission:
 
 **Rationale:** debugging requires running code, reproducing failures, and editing a fix. The `deny`-only exceptions block irreversibly dangerous commands. Luna's and GLM's debuggers never need the web; V4's may look up unfamiliar-library semantics.
 
-### Testers
+### Testers (incl. `glm/tester`)
 
 ```yaml
 permission:
@@ -152,15 +152,15 @@ permission:
     "*": allow
     "git push*": deny
     "sudo*": deny
-  webfetch: deny         # luna/tester; v4/tester → allow
+  webfetch: deny         # luna/tester, glm/tester; v4/tester → allow
   websearch: deny        # (same)
   task:
     "*": deny
 ```
 
-**Rationale:** testers validate and may write/strengthen **tests only**. The edit object is an explicit allowlist of test-file patterns with a catch-all deny, so a tester cannot accidentally modify production source. V4's tester may consult test-framework docs online.
+**Rationale:** testers validate and may write/strengthen **tests only**. The edit object is an explicit allowlist of test-file patterns with a catch-all deny, so a tester cannot accidentally modify production source. V4's tester may consult test-framework docs online; Luna's and GLM's never use the web.
 
-### `dual/orchestrator`
+### `dual/orchestrator` (Mode C)
 
 ```yaml
 permission:
@@ -193,25 +193,81 @@ permission:
     "dual/luna-reviewer": allow
 ```
 
-**Rationale:** the conductor coordinates and verifies by reading; it never mutates the repo, never runs arbitrary commands, and never researches directly. All execution, validation, and research is delegated to specialists with the correct permissions. Its own context stays small and cache-friendly (see CACHE-STRATEGY.md).
+**Rationale:** the Mode C conductor coordinates and verifies by reading; it never mutates the repo, never runs arbitrary commands, and never researches directly. All execution, validation, and research is delegated to its fixed dual-set of specialists. Its own context stays small and cache-friendly (see CACHE-STRATEGY.md). Its allowlist contains no GLM agents — the dual workflow is V4/Luna only.
+
+### `route/orchestrator` (Mode R) — the only cross-family router
+
+Same read-only shape as `dual/orchestrator`, but its `task` allowlist spans the full v4/glm/luna specialist surface because it is the single owner of cross-model routing:
+
+```yaml
+permission:
+  read: allow
+  glob: allow
+  grep: allow
+  list: allow
+  lsp: allow
+  edit: deny            # the router never edits; builders do
+  todowrite: allow
+  webfetch: deny        # research is delegated, not self-served
+  websearch: deny
+  bash:
+    "*": deny
+    "git log*": allow
+    "git status*": allow
+    "git diff*": allow
+    "git show*": allow
+    "git ls-files*": allow
+    "git grep*": allow
+    "ls *": allow
+  task:
+    "*": deny
+    "v4/explorer": allow
+    "v4/researcher": allow
+    "v4/planner": allow
+    "v4/build": allow
+    "v4/debugger": allow
+    "v4/tester": allow
+    "v4/reviewer": allow
+    "v4/security-review": allow
+    "glm/explorer": allow
+    "glm/researcher": allow
+    "glm/architect": allow
+    "glm/build": allow
+    "glm/debugger": allow
+    "glm/tester": allow
+    "glm/reviewer": allow
+    "glm/security-review": allow
+    "luna/explorer": allow
+    "luna/architect": allow
+    "luna/build": allow
+    "luna/debugger": allow
+    "luna/tester": allow
+    "luna/reviewer": allow
+    "luna/security-review": allow
+```
+
+**Rationale:** the router coordinates across model families by reading; it never mutates the repo, runs arbitrary commands, or researches directly. Every execution/validation/research step is delegated to a specialist that matches the chosen tier. None of those specialists may themselves call another family, so cross-model recursion is structurally impossible; the router's own context stays small and cache-friendly.
 
 ## 3. Cross-cutting guarantees
 
-- **No agent may spawn agents except the primaries**, and each primary only spawns its own allowlist: `luna/build` → `luna/*`; `v4/build` → `v4/*`; `glm/build` → `glm/*`; `dual/orchestrator` → its dual set. With `subagent_depth: 1` (the default), agent trees are strictly one level deep — no recursion, no fan-out beyond the whitelist. **No primary has a task path to another family's agents**, so cross-model chains (GLM → Luna → GLM, …) are structurally impossible.
+- **No agent may spawn agents except the primaries**, and each primary only spawns its own allowlist: `luna/build` → `luna/*`; `v4/build` → `v4/*`; `glm/build` → `glm/*`; `dual/orchestrator` → its dual set; `route/orchestrator` → any v4/glm/luna specialist. With `subagent_depth: 1` (the default), agent trees are strictly one level deep — no recursion, no fan-out beyond the allowlists. **Only `route/orchestrator` has a cross-family task path**, and none of the specialists it calls may themselves call another family, so cross-model recursion (GLM → Luna → GLM, …) is structurally impossible.
 - **Luna never touches the web** in any mode: all seven `luna/*` agents and `dual/luna-reviewer` deny both webfetch and websearch.
-- **GLM never touches the web** in any mode: all `glm/*` agents deny both webfetch and websearch.
+- **GLM never touches the web** in any mode: all eight `glm/*` agents deny both webfetch and websearch.
 - **Edits are confined to role**: builders/debuggers freely, testers only on test-file patterns, everyone else never.
 - **External directory access** (`external_directory`) defaults to `ask`; builders and debuggers pre-allow `/tmp/*` for scratch work. Project worktrees are inside the worktree anyway.
-- **Cross-family escalation is contractual, not navigational**: builders emit the escalation contract (docs/ESCALATION.md) in their output to describe a handoff; they never carry it out through permissions.
+- **Cross-family escalation is contractual, then routed centrally**: builders emit the escalation contract (docs/ESCALATION.md) in their output to describe a handoff; only `route/orchestrator` may act on it.
 
 ## 4. Verifying permissions
 
 ```bash
 opencode debug agent luna/build
 opencode debug agent dual/orchestrator
+opencode debug agent route/orchestrator
 opencode debug agent v4/researcher
 opencode debug agent glm/build
+opencode debug agent glm/researcher
 opencode debug agent glm/reviewer
+opencode debug agent glm/security-review
 ```
 
 The resolved permission list printed by `debug agent` reflects the effective allow/ask/deny per key — use it to confirm any agent's surface before trusting it.
