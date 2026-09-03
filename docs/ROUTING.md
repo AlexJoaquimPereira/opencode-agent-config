@@ -56,10 +56,10 @@ Go straight to `v4/planner` → `luna/build`/`luna/architect` when the task is u
 
 ## 3. Bounded escalation
 
-- At most **one** cross-model escalation step after the first builder.
-- At most **one** escalation step after GLM (which lands on Luna).
+- At most **one** cross-model escalation step after the first builder, and **one** after GLM. Maximum cross-model escalation depth = **2**.
+- Allowed paths: V4→GLM, V4→Luna, GLM→Luna, V4→GLM→Luna (full route only when justified).
+- Forbidden: Luna→GLM, Luna→V4, GLM→V4, and any cycle (V4→GLM→V4→GLM, V4→GLM→Luna→GLM, GLM→GLM, V4→V4). In-family specialist calls inside one builder session do not count against the depth.
 - Model path must terminate in `SUCCESS` or `BLOCKED`.
-- Forbidden loops: V4→GLM→V4→GLM, V4→GLM→Luna→GLM, or any other recursion.
 
 ## 4. Planning is conditional
 
@@ -80,7 +80,9 @@ For every cross-agent handoff pass only: original task, implementation contract,
 
 - **`dual/orchestrator`** remains a separate, manually selectable deterministic V4→Luna high-assurance workflow. It is not part of the routing matrix and does not depend on `route/orchestrator`.
 - **`route/orchestrator`** is the general-purpose adaptive router. Selecting it is the *only* way to get automatic cross-model behavior; every single-model agent and `dual/orchestrator` remains directly selectable without it.
+- **Provider selection is out of routing's hands** (PROVIDER-POLICY.md): the router picks the model family; OpenRouter's static `opencode.json` config picks the provider. No mid-session provider switching, no fallback.
+- **Measurement is external**: routing decisions are measured via telemetry (`docs/COST-METRICS.md`), but measured data never feeds routing in this phase (no learned thresholds yet).
 
 ## 7. Out of scope
 
-Telemetry, cost analytics, scheduling, off-peak launchers, provider benchmarking, and automatic quantization are not part of routing. Routing decides *which model and agent*; provider policy decides *which provider endpoint*.
+Automatic provider benchmarking and automatic quantization are not part of routing. Routing decides *which model and agent*; provider policy decides *which provider endpoint*. Telemetry/cost analytics and off-peak batch scheduling exist as separate external measurement/scheduling layers (see COST-METRICS.md and OPERATING-GUIDE.md) and never change the interactive routing matrix.
