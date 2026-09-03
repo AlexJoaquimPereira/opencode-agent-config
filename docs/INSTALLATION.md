@@ -29,6 +29,10 @@ Resulting layout:
 ~/.config/opencode/
 ├── README.md
 ├── docs/
+├── config/        (model-pricing.json — cost accounting assumptions)
+├── scripts/       (analyze-cost.mjs, off-peak batch launcher, route dry-run)
+├── plugins/       (opencode-telemetry.ts — optional)
+├── benchmarks/    (task corpus + run/analyze harness)
 └── agents/
     ├── luna/   (7 agents)
     ├── v4/     (8 agents)
@@ -37,7 +41,7 @@ Resulting layout:
     └── route/  (1 agent)
 ```
 
-No merge needed if these names don't already exist; if you have an existing `agents/` dir, copy only the `luna/`, `v4/`, `glm/`, `dual/`, `route/` subdirectories.
+No merge needed if these names don't already exist; if you have an existing `agents/` dir, copy only the `luna/`, `v4/`, `glm/`, `dual/`, `route/` subdirectories. The `config/`, `scripts/`, `benchmarks/` dirs are standalone tooling (no install wiring). `plugins/opencode-telemetry.ts` is optional: register/install it where OpenCode loads plugins to start recording append-only `.telemetry/` JSONL (git-ignored); without it the harness runs identically, just unmeasured.
 
 ## 3. Verify discovery and frontmatter
 
@@ -61,7 +65,7 @@ Each command should print a resolved agent config. Any frontmatter error surface
 ## 4. Verify the key invariants
 
 1. **No web on Luna**: `opencode debug agent luna/build` → permission list must contain `webfetch → deny` and `websearch → deny`. Check all 7 `luna/*` agents + `dual/luna-reviewer`.
-2. **No web on GLM**: `opencode debug agent glm/build` → `webfetch → deny`, `websearch → deny`. Check all 8 `glm/*` agents (including `glm/researcher` — local research only).
+2. **GLM web is role-appropriate**: `opencode debug agent glm/researcher` → `webfetch → allow`; `opencode debug agent glm/explorer` → `webfetch → deny` (repo-only). Build/review/debug/tester/security/architect allow web; only `glm/explorer` denies it.
 3. **Web on V4 researchers**: `opencode debug agent v4/researcher` → `webfetch → allow`, `websearch → allow`.
 4. **Models**: `luna/*` → `openrouter/openai/gpt-5.6-luna`; `v4/*`, `dual/orchestrator`, `dual/v4-*`, `route/orchestrator` → `openrouter/deepseek/deepseek-v4-flash-0731`; `glm/*` → `openrouter/z-ai/glm-5.3-flash`.
 5. **Delegation allowlists**: `debug agent` shows the `task` rules; confirm the catch-all `deny` precedes specific `allow`s (last-match-wins), that each single-model primary only allows its own family (`glm/build` → `glm/*`, no cross-family task path), and that only `route/orchestrator` spans families.
@@ -92,7 +96,7 @@ Successful behavior (verified against 1.18.x):
 
 - Mode A: builder edits, runs `node test.js`, reports green.
 - Mode B: same, with V4.
-- Mode D: same, with GLM, web-free and GLM-only.
+- Mode D: same, with GLM, web-capable per role and GLM-only.
 - Mode C: orchestrator delegates, Luna builder **verifies/amends** the contract (e.g., fixed an import path in the smoke test), implements, validates; orchestrator reports a structured result.
 - Mode R: router classifies a normal task and routes it to V4 (default), then reports a structured `## Routed result`; escalation-driven rerouting is bounded and terminates in SUCCESS or BLOCKED.
 
