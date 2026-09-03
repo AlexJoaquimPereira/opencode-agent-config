@@ -47,7 +47,7 @@ The default division of labor:
 | Security (conditional) | `luna/security-review` | Luna | Security-sensitive changes. |
 | Conductor | `dual/orchestrator` | V4 | Cheap orchestration glue; delegates all heavy lifting. |
 
-Mode C currently coordinates only Luna + V4. Cross-model routing that would also select GLM is **not implemented**; it will be introduced separately as a router that consumes the escalation contract.
+Mode C is a deterministic Luna + V4 workflow and remains a manually selectable high-assurance path. It is independent of the router; the router (Mode R, `route/orchestrator`, see ROUTING.md) is the separate adaptive path that selects among V4, GLM and Luna.
 
 The **planner is never authoritative**. `luna/build` must verify the contract against repository evidence; if the contract conflicts with repository evidence, it amends or rejects it. This is enforced in both the orchestrator prompt and the builder prompt. Only the *contract* is passed to the builder — never the planner's reasoning or exploration transcripts.
 
@@ -57,30 +57,39 @@ The orchestrator's job is routing, ordering, and synthesis — broad, cheap work
 
 ## 5. Mode D — GLM Flash only (primary: `glm/build`)
 
-GLM-5.3 Flash is a fast, cheap, **self-contained** workhorse. Its family (`glm/build`, `glm/architect`, `glm/debugger`, `glm/reviewer`) provides the same implementation loop as Mode B but with **no web by default** and **no cross-model delegation**: GLM runs alone, and specialists stay within the family. Prompts use:
+GLM-5.3 Flash is a fast, cheap, **self-contained** workhorse. Its family (`glm/build`, `glm/explorer`, `glm/researcher`, `glm/architect`, `glm/debugger`, `glm/tester`, `glm/reviewer`, `glm/security-review`) provides full functional coverage with **no web by default** and **no cross-model delegation**: GLM runs alone, and specialists stay within the family. Prompts use:
 
 - **Speed and token cost** — temperature 0.2 for determinism; step budgets comparable to V4 equivalents.
-- **No web** — `webfetch`/`websearch` are `deny`. GLM resolves everything from repository evidence; if genuinely external facts are required, `glm/build` emits the escalation contract (see §7) describing a `V4` handoff instead of guessing.
-- **Bounded delegation** — `glm/build` may only call `glm/architect`, `glm/debugger`, `glm/reviewer`. No GLM → Luna → GLM recursion is possible.
+- **No web** — `webfetch`/`websearch` are `deny`. GLM resolves everything from repository/local evidence; if genuinely external facts are required, `glm/build` emits the escalation contract (see §7) describing a `V4` handoff instead of guessing. `glm/researcher` is deliberately local-only so web research stays a V4 role.
+- **Bounded delegation** — `glm/build` may only call `glm/*`. No GLM → Luna → GLM recursion is possible.
 
 Each GLM agent is a standalone GLM-only agent: explicitly selecting `glm/build` yields a GLM-only workflow. Like the V4 and Luna families, GLM agents remain independently selectable and are not assumed to be children of a router.
+
+### 5.1 GLM as the intermediate tier
+
+GLM occupies the middle of the capability/cost ladder: more capable and autonomous than V4 for difficult coding, but below Luna's high-assurance tier. The router (see ROUTING.md) uses GLM for complex-but-conventional implementation and difficult non-critical debugging, reserving Luna for architecture, security, and critical correctness.
+
+### 5.2 Mode R — the router (`route/orchestrator`)
+
+`route/orchestrator` runs on V4 (cheap orchestration glue) and is the **only** cross-model router. It classifies each request and routes deterministically: V4 by default, GLM for the intermediate tier, Luna for high-risk/architecture/security and as the final escalation. It consumes the escalation contract emitted by single-model builders and enforces bounded escalation (no recursion; terminate in SUCCESS or BLOCKED). It is read-only and web-free; research and execution are always delegated.
 
 ## 6. Model assignment invariants
 
 1. **Every agent declares an explicit model.** Delegation is deterministic regardless of which primary spawned a subagent (subagents otherwise inherit the invoking agent's model).
 2. **All `luna/*` + `dual/luna-reviewer`** → Luna, and **all** have `webfetch: deny` + `websearch: deny`. Luna never has web, in any mode.
-3. **All `v4/*` except `v4/explorer`**, plus `dual/orchestrator`, `dual/v4-planner`, `dual/v4-researcher` → V4. Web allowed on researchers/planners/build; `v4/explorer` and `dual/orchestrator` deliberately deny web (repo-only / delegates research).
+3. **All `v4/*` except `v4/explorer`**, plus `dual/orchestrator`, `dual/v4-planner`, `dual/v4-researcher`, and `route/orchestrator` → V4. Web allowed on researchers/planners/build; `v4/explorer`, `dual/orchestrator`, and `route/orchestrator` deliberately deny web (repo-only / delegates research).
 4. **All `glm/*`** → GLM-5.3 Flash (`openrouter/z-ai/glm-5.3-flash`), with `webfetch: deny` + `websearch: deny`. GLM never has web, in any mode.
-5. **Temperature on V4 and GLM agents** (0.2 implementation/planning/review/debug/architecture, 0.3 research for V4). Luna agents omit temperature.
+5. **Temperature on V4 and GLM agents** (0.2 implementation/planning/review/debug/architecture/exploration/testing/security, 0.3 research for V4). Luna agents omit temperature.
 6. **Reasoning effort** is used to tune Luna depth per-role without raising temperature (unsupported) or wasting tokens.
 
 ## 7. Cross-family escalation (the shared contract)
 
-Single-model builders (`v4/build`, `glm/build`) remain **single-model**: they never invoke another family. When a task genuinely warrants a different family, they finish with their best validated state and emit the shared **escalation contract** (`docs/ESCALATION.md`) — `STATUS / TARGET / REASON / SEVERITY / EVIDENCE / LAST_VALIDATION / RECOMMENDED_HANDOFF`. This describes the handoff point for a future router; it never routes by itself.
+Single-model builders (`v4/build`, `glm/build`) remain **single-model**: they never invoke another family. When a task genuinely warrants a different family, they finish with their best validated state and emit the shared **escalation contract** (`docs/ESCALATION.md`) — `STATUS / TARGET / REASON / SEVERITY / EVIDENCE / LAST_VALIDATION / RECOMMENDED_HANDOFF`. The `route/orchestrator` router (Mode R) is the single consumer that performs the actual cross-model routing; routing terminates in SUCCESS or BLOCKED with bounded escalation (see §8).
 
 ## 8. Failure semantics across models
 
 - If **V4 produces a poor contract** (conflicts with repo evidence), the Luna builder amends/rejects it — the design has a built-in correction loop, not a trust boundary.
 - If **Luna is unavailable or over budget**, fall back to Mode B (`v4/build`) — the same workflows exist on V4.
 - If **web research is unavailable** in Mode B, V4 agents degrade gracefully to repo-only evidence (web is an enhancement, not a dependency).
-- If a **GLM or V4 builder escalates**, its contract is a status record for a future router — today the caller/user reads it and chooses the next model manually.
+- If a **GLM or V4 builder escalates**, it emits the escalation contract; under `route/orchestrator` this triggers a bounded route (V4→GLM or V4→Luna; GLM→Luna; never looping). Without the router, the caller/user reads the contract and chooses the next model manually.
+- **Tier termination:** GLM is never the last tier when Luna is reachable; a GLM failure routes to Luna. If Luna fails, the router reports `BLOCKED` — there is no tier above Luna and no recursion.
