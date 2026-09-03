@@ -10,12 +10,13 @@ Day-to-day usage, failure/recovery, and how to extend the harness.
 | Cheap/fast iteration, or lots of recon | B | `v4/build` |
 | Complex feature, large change, or you want planning+review discipline | C | `dual/orchestrator` |
 | You're not sure | C | `dual/orchestrator` |
-| Cheap/fast, self-contained, no-web workflow | D | `glm/build` |
+| Cheap/fast, self-contained workflow (role-appropriate web) | D | `glm/build` |
 | Adaptive routing across models, or you want V4→GLM→Luna escalation | R | `route/orchestrator` |
+| Long-running mechanical batch work on direct DeepSeek (off-peak only) | — | `scripts/opencode-direct-deepseek.mjs` |
 
 In the TUI, press **Tab** to cycle primaries. For scripted runs: `opencode run --agent <primary> "…"`.
 
-Each single-model primary (`luna/build`, `v4/build`, `glm/build`) runs its own model only, and its specialists stay within the family. `route/orchestrator` is the only agent that routes across model families automatically (V4 default, GLM intermediate, Luna high-assurance); `dual/orchestrator` is a separate deterministic V4→Luna path. When a single-model builder hits work that warrants another family, it reports an **escalation contract** (docs/ESCALATION.md); under `route/orchestrator` that contract drives the next route, otherwise you pick the next model manually.
+Each single-model primary (`luna/build`, `v4/build`, `glm/build`) runs its own model only, and its specialists stay within the family. `route/orchestrator` is the only agent that routes across model families automatically (V4 default, GLM intermediate, Luna high-assurance); `dual/orchestrator` is a separate deterministic V4→Luna path. When a single-model builder hits work that warrants another family, it reports an **escalation contract** (docs/ESCALATION.md); under `route/orchestrator` that contract drives the next route, otherwise you pick the next model manually. The off-peak direct-DeepSeek launcher (§8) is a separate batch path and does not change interactive routing.
 
 ## 2. Writing good requests
 
@@ -61,14 +62,27 @@ Nothing in the harness is project-specific:
 - The implementation contract references file paths discovered during recon, not preset paths.
 - If a repo's `AGENTS.md` adds conventions or commands, every agent in this harness respects it — the global prompts never override project rules.
 
-## 6. Observability
+## 6. Observability and measurement
 
 - `opencode debug agent <id>` — inspect any agent's resolved permissions/model/steps.
-- Prompt-cache observability metrics (if a plugin is installed) — hit rates per session.
-- Provider usage reporting — token/credit usage per provider.
 - `opencode session` list + child-session navigation (Leader+Down / Right / Left / Up) to inspect subagent work.
+- **Prompt-cache observability** (if a plugin is installed) — hit rates per session.
+- **Provider usage reporting** — token/credit usage per provider.
 
-## 7. Extending the harness
+## 7. Telemetry and cost accounting
+
+Telemetry and cost analysis are **external measurement layers** — they never enter a model's context.
+
+- **Telemetry**: the `opencode-telemetry` plugin (this repo's `plugins/opencode-telemetry.ts`) records one row per task/session and per model attempt as append-only JSONL under `<project>/.telemetry/{tasks.jsonl,attempts.jsonl}` (git-ignored). Install it by placing a build of the plugin where OpenCode loads plugins (see INSTALLATION.md), or by registering it in the plugin list. Fields recorded per exposed data: `task_id`, `attempt_id`, `parent_task_id`, timestamp, `duration_ms`, `agent`, `model`, `provider`, token counts (input/cached/uncached/cache-write/output/reasoning), `turn_count`, `tool_call_count`, `status`, `success`, `failure_reason`, escalation fields, `human_intervention`. Unavailable fields are `null`.
+- **Cost**: `config/model-pricing.json` holds *accounting assumptions* (not routing data), including the OpenRouter `credit_multiplier: 1.055`. Run `scripts/analyze-cost.mjs` against a `.telemetry` dir to compute attempt/task costs and success-adjusted metrics per model/agent/route. Details and formulas in `docs/COST-METRICS.md`.
+- **Benchmarks**: `benchmarks/run.mjs` executes real coding tasks through single-model agents and route ladders and writes objective results under `benchmarks/results/`; `benchmarks/analyze.mjs` aggregates them. See `benchmarks/README.md`.
+
+## 8. Batch and scheduling tooling
+
+- **Off-peak direct DeepSeek batch** (`scripts/opencode-direct-deepseek.mjs`): an explicit batch/background path for long-running mechanical work (repo-wide refactor, bulk test generation, migrations). It refuses to run inside DeepSeek's weekday IST peak windows (06:30–09:30, 11:30–15:30) unless `--override`. Use `--check` to print whether the current time permits batch. It never changes interactive routing.
+- **Dry-run / inspect** (`scripts/opencode-route-dryrun.mjs`): prints what routing *would* do for a prompt — task classification, initial model, planner requirement, likely escalation target, provider policy, and whether the current time permits direct-DeepSeek batch — without spending tokens.
+
+## 9. Extending the harness
 
 ### Add a new specialist
 
@@ -99,11 +113,13 @@ Never edit global agents for a single repo. Use the project's `AGENTS.md` (gener
 
 The global harness intentionally stays generic so it remains reusable across unrelated repositories.
 
-## 8. Operational notes
+## 10. Operational notes
 
 - **Agent IDs are path-prefixed**: `luna/build`, `v4/researcher`, `glm/build`, `dual/orchestrator`, `route/orchestrator`. Use full IDs in `@mentions` and task rules.
 - **Do not add README/docs inside `agents/`** — any markdown there becomes an agent.
 - **Keep `subagent_depth` at 1** unless you explicitly want deeper trees (you probably don't).
 - **Orchestrators never edit** — if you need direct file changes in Mode C/R, they happen inside the chosen builder (`luna/build`, `v4/build`, `glm/build`). This is by design (read-only conductors).
-- **Web usage is the exception, not the rule**: V4 researchers use it when repo evidence is insufficient; Luna and GLM never use it.
+- **Web usage is the exception, not the rule**: V4 and GLM researchers use it when repo evidence is insufficient; Luna never uses it.
 - **Single-model families never route cross-family** — builders emit an escalation contract instead; `route/orchestrator` is the single owner of cross-model routing. `dual/orchestrator` is a separate fixed V4→Luna path.
+- **Provider selection is configuration, not routing**: the router picks the model family; `opencode.json`/OpenRouter picks the provider once per session (no fallbacks, no mid-session switches — see PROVIDER-POLICY.md).
+- **Measurement layers stay out of model context**: telemetry (`.telemetry/`), cost pricing (`config/model-pricing.json`), and benchmark results are external tooling, never injected into prompts.
