@@ -8,7 +8,7 @@ Why GPT-5.6 Luna, DeepSeek V4 Flash, and GLM-5.3 Flash are assigned to their spe
 | Model ID | `openrouter/openai/gpt-5.6-luna` | `openrouter/deepseek/deepseek-v4-flash-0731` | `openrouter/z-ai/glm-5.3-flash` |
 | Profile | Deep reasoning, high-quality implementation | Fast, cheap, broad | Fast, cheap, self-contained |
 | Context | ~1.05M (configurable cap + auto-compaction) | ~1.3M | ~1.3M |
-| Web | **No** (hard requirement) | **Yes** (OpenRouter/Exa available) | **No by default** |
+| Web | **No** (hard requirement) | **Yes** (OpenRouter/Exa available) | **Yes, role-appropriate** (repo-first; explorer repo-only) |
 | Temperature support | No (reasoning model) | Yes | Yes |
 | Cost | ~10x V4 | ~1x | Comparable to V4 |
 
@@ -57,10 +57,10 @@ The orchestrator's job is routing, ordering, and synthesis — broad, cheap work
 
 ## 5. Mode D — GLM Flash only (primary: `glm/build`)
 
-GLM-5.3 Flash is a fast, cheap, **self-contained** workhorse. Its family (`glm/build`, `glm/explorer`, `glm/researcher`, `glm/architect`, `glm/debugger`, `glm/tester`, `glm/reviewer`, `glm/security-review`) provides full functional coverage with **no web by default** and **no cross-model delegation**: GLM runs alone, and specialists stay within the family. Prompts use:
+GLM-5.3 Flash is a fast, cheap, **self-contained** workhorse. Its family (`glm/build`, `glm/explorer`, `glm/researcher`, `glm/architect`, `glm/debugger`, `glm/tester`, `glm/reviewer`, `glm/security-review`) provides full functional coverage with **role-appropriate web access** and **no cross-model delegation**: GLM runs alone, and specialists stay within the family. Prompts use:
 
 - **Speed and token cost** — temperature 0.2 for determinism; step budgets comparable to V4 equivalents.
-- **No web** — `webfetch`/`websearch` are `deny`. GLM resolves everything from repository/local evidence; if genuinely external facts are required, `glm/build` emits the escalation contract (see §7) describing a `V4` handoff instead of guessing. `glm/researcher` is deliberately local-only so web research stays a V4 role.
+- **Role-appropriate web** — web is allowed where the specialist role benefits (build, researcher, architect, debugger, tester, reviewer, security-review), always repo-first and used once per task with a compact summary. `glm/explorer` denies web (repo-only, mirroring `v4/explorer`). If genuinely external facts are required during an escalation, GLM can research them itself or emit the escalation contract (see §7).
 - **Bounded delegation** — `glm/build` may only call `glm/*`. No GLM → Luna → GLM recursion is possible.
 
 Each GLM agent is a standalone GLM-only agent: explicitly selecting `glm/build` yields a GLM-only workflow. Like the V4 and Luna families, GLM agents remain independently selectable and are not assumed to be children of a router.
@@ -78,7 +78,7 @@ GLM occupies the middle of the capability/cost ladder: more capable and autonomo
 1. **Every agent declares an explicit model.** Delegation is deterministic regardless of which primary spawned a subagent (subagents otherwise inherit the invoking agent's model).
 2. **All `luna/*` + `dual/luna-reviewer`** → Luna, and **all** have `webfetch: deny` + `websearch: deny`. Luna never has web, in any mode.
 3. **All `v4/*` except `v4/explorer`**, plus `dual/orchestrator`, `dual/v4-planner`, `dual/v4-researcher`, and `route/orchestrator` → V4. Web allowed on researchers/planners/build; `v4/explorer`, `dual/orchestrator`, and `route/orchestrator` deliberately deny web (repo-only / delegates research).
-4. **All `glm/*`** → GLM-5.3 Flash (`openrouter/z-ai/glm-5.3-flash`), with `webfetch: deny` + `websearch: deny`. GLM never has web, in any mode.
+4. **All `glm/*`** → GLM-5.3 Flash (`openrouter/z-ai/glm-5.3-flash`). Web is role-appropriate: allowed on builders/researchers/architects/debuggers/testers/reviewers/security-review (repo-first), denied on `glm/explorer` (repo-only). Luna never has web; GLM does where its role benefits.
 5. **Temperature on V4 and GLM agents** (0.2 implementation/planning/review/debug/architecture/exploration/testing/security, 0.3 research for V4). Luna agents omit temperature.
 6. **Reasoning effort** is used to tune Luna depth per-role without raising temperature (unsupported) or wasting tokens.
 
