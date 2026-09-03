@@ -1,0 +1,11 @@
+{
+  "id": "simple-bug",
+  "category": "simple bug",
+  "class": "simple",
+  "prompt": "Fix the off-by-one bug in range() so range(1, 5) returns [1, 2, 3, 4] and range(5, 1, -1) returns [5, 4, 3, 2].",
+  "files": {
+    "range.js": "function range(start, end, step = 1) {\n  const out = [];\n  if (step > 0) {\n    for (let i = start; i <= end; i += step) out.push(i);\n  } else {\n    for (let i = start; i >= end; i += step) out.push(i);\n  }\n  return out;\n}\nmodule.exports = { range };\n",
+    "test.js": "const assert = require('assert');\nconst { range } = require('./range');\nassert.deepStrictEqual(range(1, 5), [1, 2, 3, 4]);\nassert.deepStrictEqual(range(5, 1, -1), [5, 4, 3, 2]);\nassert.deepStrictEqual(range(1, 5, 2), [1, 3]);\nconsole.log('ok');\n"
+  },
+  "validate": ["node", "test.js"]
+}

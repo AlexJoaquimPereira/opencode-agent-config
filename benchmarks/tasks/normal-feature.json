@@ -1,0 +1,11 @@
+{
+  "id": "normal-feature",
+  "category": "normal feature",
+  "class": "normal",
+  "prompt": "Add an isPalindrome(s) function to stringutil.js: it must ignore case and non-alphanumeric characters. Export it and add a passing test.",
+  "files": {
+    "stringutil.js": "module.exports = {};\n",
+    "test.js": "const assert = require('assert');\nconst { isPalindrome } = require('./stringutil');\nassert.strictEqual(isPalindrome('A man, a plan, a canal: Panama'), true);\nassert.strictEqual(isPalindrome('race a car'), false);\nassert.strictEqual(isPalindrome(''), true);\nconsole.log('ok');\n"
+  },
+  "validate": ["node", "test.js"]
+}

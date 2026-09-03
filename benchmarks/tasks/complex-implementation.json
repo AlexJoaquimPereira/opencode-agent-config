@@ -1,0 +1,11 @@
+{
+  "id": "complex-implementation",
+  "category": "complex implementation",
+  "class": "complex",
+  "prompt": "Implement a small LRU cache in lru.js with get/set, max size eviction of least-recently-used entries, and update-on-access recency. Export { LruCache }. Write tests in test.js exercising eviction and recency, and make node test.js pass.",
+  "files": {
+    "lru.js": "module.exports = { LruCache: null };\n",
+    "test.js": "const assert = require('assert');\nconst { LruCache } = require('./lru');\nconst c = new LruCache(2);\nc.set('a', 1); c.set('b', 2); c.get('a'); c.set('c', 3);\nassert.strictEqual(c.get('b'), undefined, 'b evicted (LRU)');\nassert.strictEqual(c.get('a'), 1);\nassert.strictEqual(c.get('c'), 3);\nc.set('d', 4);\nassert.strictEqual(c.get('c'), undefined, 'c evicted after recency update');\nconsole.log('ok');\n"
+  },
+  "validate": ["node", "test.js"]
+}

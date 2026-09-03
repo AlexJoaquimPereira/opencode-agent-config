@@ -1,0 +1,11 @@
+{
+  "id": "security-sensitive",
+  "category": "security-sensitive",
+  "class": "security",
+  "prompt": "The query builder in query.js builds a SQL string from user input. Fix it to use parameters so input cannot inject SQL. Keep the API query(table, where). The test must pass and must verify an injection attempt is neutralized.",
+  "files": {
+    "query.js": "function query(table, where) {\n  const pairs = Object.entries(where || {}).map(([k, v]) => `${k}='${String(v)}'`);\n  const clause = pairs.length ? ' WHERE ' + pairs.join(' AND ') : '';\n  return `SELECT * FROM ${table}${clause}`;\n}\nmodule.exports = { query };\n",
+    "test.js": "const assert = require('assert');\nconst { query } = require('./query');\nconst sql = query('users', { id: 1, name: \"a' OR '1'='1\" });\nassert.ok(!sql.includes(\"OR '1'='1\"), 'injection must not appear verbatim');\nassert.ok(sql.includes('$1') || sql.includes('?') || sql.includes('\\'a'), 'parameterized or escaped');\nconsole.log('ok');\n"
+  },
+  "validate": ["node", "test.js"]
+}

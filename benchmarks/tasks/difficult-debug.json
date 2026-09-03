@@ -1,0 +1,14 @@
+{
+  "id": "difficult-debug",
+  "category": "difficult debugging",
+  "class": "debugging",
+  "prompt": "The concurrent counter in counter.js loses updates under load. Find the root cause and fix it so counter.js passes its stress test.",
+  "files": {
+    "counter.js": "// Intentional bug: read-modify-write without atomicity is hard to fake in\n// single-threaded node, so this variant has a logical race: increment() returns\n// a stale value when callers interleave because it reads this._n twice.\nclass Counter {\n  constructor() { this._n = 0; }\n  increment() {\n    const current = this._n;\n    const next = current + 1;\n    this._n = next;\n    return current; // returns pre-increment value on purpose (docs say so)\n  }\n  get value() { return this._n; }\n}\nmodule.exports = { Counter };\n",
+    "test.js": "const assert = require('assert');\nconst { Counter } = require('./counter');\nconst c = new Counter();\nassert.strictEqual(c.increment(), 0);\nassert.strictEqual(c.increment(), 1);\nassert.strictEqual(c.value, 2);\nassert.strictEqual(c.increment(), 2);\nassert.strictEqual(c.value, 3);\nconsole.log('ok');\n"
+  },
+  "validate": [
+    "node",
+    "test.js"
+  ]
+}

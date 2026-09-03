@@ -1,0 +1,11 @@
+{
+  "id": "multi-file-feature",
+  "category": "multi-file feature",
+  "class": "multi-file",
+  "prompt": "Add CSV parsing to this package across multiple files: create lib/csv.js exporting parseCsv(text) that handles quoted fields and commas inside quotes, wire it into index.js as module.exports.parseCsv, and add tests in test/csv.test.js that run via node test/csv.test.js.",
+  "files": {
+    "index.js": "module.exports = { parseCsv: null };\n",
+    "test/csv.test.js": "const assert = require('assert');\nconst { parseCsv } = require('../index');\nassert.deepStrictEqual(parseCsv('a,b\\n1,2'), [['a', 'b'], ['1', '2']]);\nassert.deepStrictEqual(parseCsv('a,\"b,c\"'), [['a', 'b,c']]);\nassert.deepStrictEqual(parseCsv('\"he said \"\"hi\"\"\",x'), [['he said \"hi\"', 'x']]);\nconsole.log('ok');\n"
+  },
+  "validate": ["node", "test/csv.test.js"]
+}

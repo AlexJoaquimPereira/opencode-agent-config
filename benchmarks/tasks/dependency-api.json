@@ -1,0 +1,11 @@
+{
+  "id": "dependency-api",
+  "category": "dependency/API uncertainty",
+  "class": "external-research",
+  "prompt": "Use only Node's built-in modules. Implement an HTTP client function fetchJson(url, opts) in client.js that returns parsed JSON, follows up to 3 redirects, and sets a 10s timeout. Use only node:http/https and node:url. Make the self-test in test.js pass against a local echo server.",
+  "files": {
+    "client.js": "module.exports = { fetchJson: null };\n",
+    "test.js": "const http = require('http');\nconst assert = require('assert');\nconst { fetchJson } = require('./client');\nconst server = http.createServer((req, res) => {\n  if (req.url === '/redirect') { res.writeHead(302, { Location: '/ok' }); res.end(); return; }\n  if (req.url === '/ok') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true })); return; }\n  res.writeHead(404); res.end('{}');\n});\nserver.listen(0, async () => {\n  const port = server.address().port;\n  const base = `http://127.0.0.1:${port}`;\n  const a = await fetchJson(base + '/ok');\n  assert.deepStrictEqual(a, { ok: true });\n  const b = await fetchJson(base + '/redirect');\n  assert.deepStrictEqual(b, { ok: true });\n  console.log('ok');\n  server.close();\n});\n"
+  },
+  "validate": ["node", "test.js"]
+}

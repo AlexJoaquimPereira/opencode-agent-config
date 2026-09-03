@@ -1,0 +1,11 @@
+{
+  "id": "architecture-change",
+  "category": "architecture",
+  "class": "architecture",
+  "prompt": "Refactor this callback-based loader into a promise-based one (async/await) while keeping the public API of load() returning a Promise and data events working. Update the test to async/await. Do not change file paths.",
+  "files": {
+    "loader.js": "function load(path, cb) {\n  // synchronous stand-in for an async read\n  const data = { path, bytes: 10 };\n  process.nextTick(() => cb(null, data));\n}\nmodule.exports = { load };\n",
+    "test.js": "const assert = require('assert');\nconst { load } = require('./loader');\nload('./x', (err, data) => {\n  assert.ifError(err);\n  assert.strictEqual(data.path, './x');\n  console.log('ok');\n});\n"
+  },
+  "validate": ["node", "test.js"]
+}
