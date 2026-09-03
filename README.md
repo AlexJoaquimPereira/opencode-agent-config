@@ -1,6 +1,6 @@
 # OpenCode Multi-Model Engineering Harness
 
-A general-purpose, model-aware agent system for OpenCode V2 that runs on two models — **GPT-5.6 Luna** (deep implementation) and **DeepSeek V4 Flash** (fast planning/research) — independently or together.
+A general-purpose, model-aware agent system for OpenCode V2 that runs on three model families — **GPT-5.6 Luna** (deep implementation), **DeepSeek V4 Flash** (fast planning/research), and **GLM-5.3 Flash** (fast self-contained implementation) — independently or, later, together.
 
 The system behaves like a small software-engineering organization: builders, architects, explorers, debuggers, testers, reviewers, security reviewers, and a two-model orchestrator. It is reusable across arbitrary repositories with no project-specific customization. Project behavior belongs in the project's `AGENTS.md`, not here.
 
@@ -15,6 +15,7 @@ The system behaves like a small software-engineering organization: builders, arc
 │   ├── MODEL-STRATEGY.md
 │   ├── PERMISSIONS.md
 │   ├── ORCHESTRATION.md
+│   ├── ESCALATION.md
 │   ├── TOKEN-EFFICIENCY.md
 │   ├── CACHE-STRATEGY.md
 │   ├── INSTALLATION.md
@@ -37,6 +38,11 @@ The system behaves like a small software-engineering organization: builders, arc
     │   ├── tester.md
     │   ├── reviewer.md
     │   └── security-review.md
+    ├── glm/             ← GLM-5.3 Flash-only specialists
+    │   ├── build.md             (primary)
+    │   ├── architect.md
+    │   ├── debugger.md
+    │   └── reviewer.md
     └── dual/            ← Mode C: two-model orchestration
         ├── orchestrator.md      (primary)
         ├── v4-planner.md
@@ -50,23 +56,27 @@ The system behaves like a small software-engineering organization: builders, arc
 
 ```bash
 # pick your operating mode (Tab in the TUI, or --agent in run)
-opencode            # then Tab → luna/build | v4/build | dual/orchestrator
+opencode            # then Tab → luna/build | v4/build | glm/build | dual/orchestrator
 opencode run --agent luna/build "…"
 opencode run --agent v4/build "…"
+opencode run --agent glm/build "…"
 opencode run --agent dual/orchestrator "…"
 ```
 
-Three modes:
+Each single-model primary (`luna/build`, `v4/build`, `glm/build`) is independently selectable and runs that model only. The `dual/*` orchestrator coordinates Luna + V4; cross-model routing that also includes GLM is planned separately and does not exist yet.
 
 | Mode | Primary agent | Model | When |
 |------|--------------|-------|------|
 | A — Luna only | `luna/build` | GPT-5.6 Luna | Highest-quality implementation, no web access |
 | B — V4 Flash only | `v4/build` | DeepSeek V4 Flash | Cheap and fast, occasional web research |
-| C — Two-model | `dual/orchestrator` | V4 Flash conductor, Luna builder/reviewer | Best of both: V4 plans, Luna implements & verifies |
+| C — Two-model | `dual/orchestrator` | V4 Flash conductor, Luna builder/reviewer | V4 plans, Luna implements & verifies |
+| D — GLM Flash only | `glm/build` | GLM-5.3 Flash | Cheap and fast, self-contained, no web |
 
 ## Agent naming
 
-Subdirectory agents get path-prefixed IDs: `luna/build`, `v4/planner`, `dual/orchestrator`. Primary agents are selected directly; subagents are invoked by primaries via the task tool (or by you with `@luna/reviewer` etc.).
+Subdirectory agents get path-prefixed IDs: `luna/build`, `v4/planner`, `glm/build`, `dual/orchestrator`. Primary agents are selected directly; subagents are invoked by primaries via the task tool (or by you with `@luna/reviewer` etc.).
+
+Each model family's agents (`luna/*`, `v4/*`, `glm/*`) remain independently selectable and never route cross-family work themselves. Single-model primaries emit the shared escalation contract (docs/ESCALATION.md) when a task warrants another family; actual cross-model routing will be added later as a separate router.
 
 ## Documentation index
 
@@ -75,6 +85,7 @@ Subdirectory agents get path-prefixed IDs: `luna/build`, `v4/planner`, `dual/orc
 - **docs/MODEL-STRATEGY.md** — why each model is assigned to each role; reasoning, cost, latency tradeoffs.
 - **docs/PERMISSIONS.md** — least-privilege rationale for every permission block.
 - **docs/ORCHESTRATION.md** — the two-model pipeline and deterministic escalation rules.
+- **docs/ESCALATION.md** — the shared cross-family escalation contract used by single-model builders.
 - **docs/TOKEN-EFFICIENCY.md** — how the agents stay context-lean and compaction-compatible.
 - **docs/CACHE-STRATEGY.md** — DeepSeek + OpenRouter prompt-cache economics and stable prefixes.
 - **docs/INSTALLATION.md** — prerequisites, install, config, verification steps.
