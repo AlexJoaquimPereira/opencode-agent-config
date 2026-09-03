@@ -10,7 +10,7 @@ Complete reference for every agent: responsibility, model, permissions, step bud
 - **Web**: webfetch/websearch permission.
 - **Temp**: temperature (only V4 and GLM support it; Luna omits it).
 
-Model families in this harness: **DeepSeek V4 Flash**, **GPT-5.6 Luna**, **GLM-5.3 Flash**. Each family's agents are independently selectable and never route cross-family work themselves. Cross-model routing (a router that consumes the escalation contract) is **not implemented yet**.
+Model families in this harness: **DeepSeek V4 Flash**, **GPT-5.6 Luna**, **GLM-5.3 Flash**. Each family's agents are independently selectable and never route cross-family work themselves. Cross-model routing is centralized in `route/orchestrator` (Mode R), which consumes the escalation contract emitted by single-model builders; `dual/orchestrator` (Mode C) is a separate deterministic V4→Luna workflow.
 
 ## Mode A — Luna only
 
@@ -223,10 +223,38 @@ GLM-5.3 Flash is a fast, self-contained family: no web by default and no cross-m
 | Web | `deny` |
 | Edits | `allow` |
 | Bash | `allow`, guarded as `luna/build` |
-| Task (spawn) | `glm/architect`, `glm/debugger`, `glm/reviewer` |
+| Task (spawn) | `glm/explorer`, `glm/researcher`, `glm/architect`, `glm/debugger`, `glm/tester`, `glm/reviewer`, `glm/security-review` |
 | Invoke when | Any implementation in Mode D. |
 
 Responsibility: same implementation loop as `luna/build`/`v4/build`, but GLM-only and web-free. Runs standalone when selected directly. When a task genuinely warrants Luna or V4 (deep reasoning, security review, or web research it cannot do), it finishes with its best validated state and emits the shared **escalation contract** (`docs/ESCALATION.md`) in its report — it never routes cross-model itself.
+
+### `glm/explorer` — repository recon
+
+| Field | Value |
+|---|---|
+| Mode / Model | `subagent` / GLM |
+| Steps / Temp | 30 / 0.2 |
+| Web | `deny` |
+| Edits | `deny` |
+| Bash | git read-only + `rg`/`ls` |
+| Task | none |
+| Invoke when | GLM-only workflow needs a repo map before touching code. |
+
+Responsibility: read-only repo mapping / codebase Q&A; outputs a compact structured report (Summary, Key files, Flow, Conventions, Gaps).
+
+### `glm/researcher` — local research
+
+| Field | Value |
+|---|---|
+| Mode / Model | `subagent` / GLM |
+| Steps / Temp | 30 / 0.2 |
+| Web | `deny` (by design — web research belongs to `v4/researcher`) |
+| Edits | `deny` |
+| Bash | git read-only + `rg`/`ls` |
+| Task | none |
+| Invoke when | Dependency/API/documentation question answerable from the repository and local dependency source. |
+
+Responsibility: investigate via repo code/docs, lockfiles/manifests, and installed dependency source; returns a compact `## Evidence packet` with local citations. States explicitly when the question instead needs `v4/researcher`'s web access.
 
 ### `glm/architect` — read-only architecture analysis
 
@@ -254,6 +282,18 @@ Responsibility: same implementation loop as `luna/build`/`v4/build`, but GLM-onl
 
 Responsibility: reproduce → isolate → hypothesize → test hypothesis → fix root cause → re-reproduce → regression test, on execution evidence, GLM-only, no web.
 
+### `glm/tester` — test & validation
+
+| Field | Value |
+|---|---|
+| Mode / Model | `subagent` / GLM |
+| Steps / Temp | 45 / 0.2 |
+| Web | `deny` |
+| Edits | test-file patterns only (same object as `luna/tester`) |
+| Bash | `allow`, guarded (`git push*` → `deny`, `sudo*` → `deny`) |
+| Task | none |
+| Invoke when | Validating a GLM implementation or writing/strengthening tests; diagnoses whether a failure is implementation vs environment. |
+
 ### `glm/reviewer` — code review
 
 | Field | Value |
@@ -268,6 +308,36 @@ Responsibility: reproduce → isolate → hypothesize → test hypothesis → fi
 
 Responsibility: same review workflow as `luna/reviewer`/`v4/reviewer` (inspect diff → trace → defects → severity → corrections; verdict `APPROVED` / `APPROVE WITH CHANGES` / `CHANGES REQUIRED`), GLM-only, no web.
 
+### `glm/security-review` — security audit
+
+| Field | Value |
+|---|---|
+| Mode / Model | `subagent` / GLM |
+| Steps / Temp | 40 / 0.2 |
+| Web | `deny` |
+| Edits | `deny` |
+| Bash | git read-only + test commands |
+| Task | none |
+| Invoke when | Security-sensitive change in a GLM-only workflow. |
+
+Responsibility: trust-boundary/injection/auth/secrets/command-execution/filesystem/network/race review on local evidence; verdict `CLEAN` / `REVIEW RECOMMENDED` / `HIGH RISK`.
+
+## Mode R — Multi-model router
+
+### `route/orchestrator` — adaptive router (primary)
+
+| Field | Value |
+|---|---|
+| Mode / Model | `primary` / V4 (conductor) |
+| Steps / Temp | 150 / 0.2 |
+| Web | `deny` (delegates research) |
+| Edits | `deny` (never modifies files) |
+| Bash | git read-only + `ls` |
+| Task (spawn) | `v4/*` (8), `glm/*` (8), `luna/explorer`, `luna/architect`, `luna/build`, `luna/debugger`, `luna/tester`, `luna/reviewer`, `luna/security-review` |
+| Invoke when | Any task where you want automatic adaptive routing (V4 → GLM → Luna) instead of picking a single model or the deterministic dual workflow. |
+
+Responsibility: classify the request, route deterministically (default `v4/build`; complex → GLM; architecture/security/high-risk → Luna), interpret specialist escalation contracts to escalate V4→GLM→Luna with a hard bound of one cross-model step after each tier, plan only when warranted, and report a `## Routed result`. Cross-model routing is centralized here — no specialist routes across families.
+
 ## Why these exact agents
 
-Each role maps to a real engineering workflow (build, design, explore, debug, test, review, secure). Roles that would duplicate existing workflows (refactor, performance, migration, release/CI, dependency-research) were deliberately folded into these agents or into project `AGENTS.md` — see `ARCHITECTURE.md` §4.3.
+Each role maps to a real engineering workflow (build, design, explore, debug, test, review, secure). Roles that would duplicate existing workflows (refactor, performance, migration, release/CI, dependency-research) were deliberately folded into these agents or into project `AGENTS.md` — see `ARCHITECTURE.md` §4.3. Web-based dependency/API research is a V4 responsibility; GLM research is deliberately local-only to preserve the V4/Luna role separation.
