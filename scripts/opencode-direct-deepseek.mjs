@@ -20,7 +20,7 @@
 //
 // Env:
 //   OPENCODE_BIN     path to opencode (default: repo bin/opencode)
-//   DIRECT_MODEL     model id (default: deepseek/deepseek-v4-flash-0731)
+//   DIRECT_MODEL     model id (default: deepseek/deepseek-v4.1-flash)
 //   CLOCK_NOW_MS     fake "now" in epoch ms for testing (overrides real clock)
 import { spawnSync } from "node:child_process"
 import { join, dirname } from "node:path"
@@ -30,7 +30,7 @@ import { describe } from "./lib/ist.mjs"
 const here = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(here, "..")
 const OPENCODE = process.env.OPENCODE_BIN || join(ROOT, "bin", "opencode")
-const DIRECT_MODEL = process.env.DIRECT_MODEL || "deepseek/deepseek-v4-flash-0731"
+const DIRECT_MODEL = process.env.DIRECT_MODEL || "deepseek/deepseek-v4.1-flash"
 
 function parseArgs(argv) {
   const a = { agent: "v4/build", override: false, check: false, prompt: null }
