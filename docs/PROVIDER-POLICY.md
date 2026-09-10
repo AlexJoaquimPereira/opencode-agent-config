@@ -29,7 +29,7 @@ The provider is chosen by the static `opencode.json` config, exactly as currentl
 ```jsonc
 // opencode.json (openrouter.models.*.options.provider)
 "openai/gpt-5.6-luna":      { "only": ["openai/flex", "azure", "openai"], "allow_fallbacks": false }
-"deepseek/deepseek-v4-flash-0731": { "sort": "price", "allow_fallbacks": false }
+"deepseek/deepseek-v4.1-flash": { "sort": "price", "allow_fallbacks": false }
 "z-ai/glm-5.3-flash":       { "sort": "price", "allow_fallbacks": false }
 ```
 
@@ -37,7 +37,7 @@ Intended policy summary:
 
 | Model | Provider selection | Fallback |
 |---|---|---|
-| DeepSeek V4 | `sort = price` | `allow_fallbacks = false` |
+| DeepSeek V4.1 | `sort = price` | `allow_fallbacks = false` |
 | GLM-5.3 Flash | `sort = price` | `allow_fallbacks = false` |
 | GPT-5.6 Luna | `only = [openai/flex, azure, openai]` | `allow_fallbacks = false` |
 
