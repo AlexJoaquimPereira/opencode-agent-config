@@ -1,6 +1,6 @@
 {
   "$comment": "Pricing assumptions for COST ACCOUNTING ONLY. These are NOT routing instructions and are never injected into agent prompts. All prices are USD. Token prices are per 1,000,000 tokens unless noted. Update as_of when a price record changes; never edit agent prompts to change prices.",
-  "as_of": "2026-09-03",
+  "as_of": "2026-09-10",
   "currency": "USD",
   "token_unit": "per_1M",
   "credit_multiplier": {
@@ -8,14 +8,15 @@
     "openrouter": 1.055
   },
   "models": {
-    "deepseek-v4": {
+    "deepseek-v4.1": {
       "family": "V4",
       "agent_namespace": "v4",
-      "model_id": "openrouter/deepseek/deepseek-v4-flash-0731",
+      "model_id": "openrouter/deepseek/deepseek-v4.1-flash",
       "deepseek_direct": {
-        "$comment": "DeepSeek first-party direct API list prices (peak/off-peak IST windows). Used only by the off-peak batch path (scripts/opencode-direct-deepseek); NOT used for interactive routing.",
-        "peak": { "cache_hit_input": 0.014, "input": 0.44, "output": 1.32 },
-        "off_peak": { "cache_hit_input": 0.007, "input": 0.22, "output": 0.66 }
+        "$comment": "DeepSeek first-party direct API list prices for the current flash model (deepseek-flash = DeepSeek-V4.1-Flash), in USD per 1M tokens. Peak hours are 01:00-04:00 and 06:00-10:00 UTC Mon-Fri (= 06:30-09:30 and 11:30-15:30 IST); off-peak is half of peak. The legacy model names deepseek-v4-flash / deepseek-v4-flash-0731 are retired and billed at this Flash price. Used only by the off-peak batch path (scripts/opencode-direct-deepseek); NOT used for interactive routing.",
+        "as_of": "2026-09-10",
+        "peak": { "cache_hit_input": 0.006, "input": 0.30, "output": 1.20 },
+        "off_peak": { "cache_hit_input": 0.003, "input": 0.15, "output": 0.60 }
       },
       "openrouter": {
         "$comment": "OpenRouter listed price for the pinned model id. Verified against OpenRouter /api/v1/models on as_of.",
@@ -30,12 +31,12 @@
       "agent_namespace": "glm",
       "model_id": "openrouter/z-ai/glm-5.3-flash",
       "openrouter": {
-        "$comment": "OpenRouter listed price, dated record. Promotional/discounted pricing is NOT assumed permanent; revise as_of when it changes.",
-        "as_of": "2026-09-03",
-        "input": 0.075,
-        "cache_read": 0.015,
+        "$comment": "OpenRouter listed price, dated record; revise as_of when it changes.",
+        "as_of": "2026-09-10",
+        "input": 0.15,
+        "cache_read": 0.03,
         "cache_write": null,
-        "output": 0.25
+        "output": 0.50
       }
     },
     "luna-5.6": {
