@@ -22,14 +22,14 @@ Two constraints shape everything: **GPT-5.6 Luna has no web access** (hard requi
 The user runs several configurations. Each single-model family is a first-class, independently selectable mode:
 
 - **Mode A — Luna only.** Primary: `luna/build`. Deep implementation, debugging, testing, review, architecture. No web, by design.
-- **Mode B — V4 Flash only.** Primary: `v4/build`. Fast, cheap implementation with web research available but discouraged unless repository evidence is insufficient.
+- **Mode B — V4.1 Flash only.** Primary: `v4/build`. Fast, cheap implementation with web research available but discouraged unless repository evidence is insufficient.
 - **Mode C — Two-model (Luna + V4).** Primary: `dual/orchestrator`. Deterministic V4-plan/Luna-execute high-assurance workflow; a separate manual path, independent of the router.
 - **Mode D — GLM Flash only.** Primary: `glm/build`. Fast, self-contained implementation (build, explorer, researcher, architect, debugger, tester, reviewer, security-review) with role-appropriate web access (repo-first).
 - **Mode R — Multi-model router.** Primary: `route/orchestrator`. Adaptive routing across V4 (default workhorse), GLM (intermediate), and Luna (high-assurance). Selecting it is the only way to get automatic cross-model behavior.
 
 Because models may be used together, every agent declares an explicit `model`, so delegation is deterministic regardless of which primary spawned the subagent.
 
-The model families supported by this harness are **DeepSeek V4 Flash**, **GPT-5.6 Luna**, and **GLM-5.3 Flash** — no other family is referenced. Cross-model routing is centralized in the `route/orchestrator` router (Mode R): it selects among V4, GLM and Luna per the routing matrix (ROUTING.md). The `dual/orchestrator` (Mode C) remains a separate deterministic V4→Luna workflow.
+The model families supported by this harness are **DeepSeek V4.1 Flash**, **GPT-5.6 Luna**, and **GLM-5.3 Flash** — no other family is referenced. Cross-model routing is centralized in the `route/orchestrator` router (Mode R): it selects among V4, GLM and Luna per the routing matrix (ROUTING.md). The `dual/orchestrator` (Mode C) remains a separate deterministic V4→Luna workflow.
 
 ## 3. Agent namespaces
 
@@ -47,7 +47,7 @@ Namespacing serves three purposes:
 
 - **No collisions.** A JSON-defined `luna` agent in `opencode.json` coexists with `luna/*` markdown agents because names differ.
 - **Task-scoped delegation.** Primary agents allow task calls via glob patterns like `luna/*`, `v4/*`, `glm/*`. Last-match-wins makes `"*": "deny"` + `"namespace/agent": "allow"` the reliable way to whitelist exactly the intended set.
-- **Model scoping.** All `luna/*` agents run GPT-5.6 Luna; all `v4/*` agents run DeepSeek V4 Flash; all `glm/*` agents run GLM-5.3 Flash; `dual/*` mixes: conductor and planners on V4, reviewers on Luna; `route/orchestrator` runs V4 as conductor and is the only cross-model router.
+- **Model scoping.** All `luna/*` agents run GPT-5.6 Luna; all `v4/*` agents run DeepSeek V4.1 Flash; all `glm/*` agents run GLM-5.3 Flash; `dual/*` mixes: conductor and planners on V4, reviewers on Luna; `route/orchestrator` runs V4 as conductor and is the only cross-model router.
 
 ## 4. Agent roles and why they exist
 
@@ -58,10 +58,10 @@ Only roles that map to real engineering workflows were created. Each has a concr
 | Agent | Model | Why it is a primary |
 |---|---|---|
 | `luna/build` | Luna | Main implementation engineer for Mode A. Can be selected directly and can spawn Luna specialists. |
-| `v4/build` | V4 Flash | Main implementation engineer for Mode B. |
+| `v4/build` | V4.1 Flash | Main implementation engineer for Mode B. |
 | `glm/build` | GLM-5.3 Flash | Main implementation engineer for Mode D. Can be selected directly and can spawn GLM specialists. |
-| `dual/orchestrator` | V4 Flash | Conductor for Mode C (deterministic V4→Luna). Read-only by design: it never edits directly. |
-| `route/orchestrator` | V4 Flash | Router for Mode R. The only cross-model router: adaptively selects V4/GLM/Luna per ROUTING.md. Read-only by design: it never edits directly. |
+| `dual/orchestrator` | V4.1 Flash | Conductor for Mode C (deterministic V4→Luna). Read-only by design: it never edits directly. |
+| `route/orchestrator` | V4.1 Flash | Router for Mode R. The only cross-model router: adaptively selects V4/GLM/Luna per ROUTING.md. Read-only by design: it never edits directly. |
 
 Primaries are the only agents that spawn subagents. OpenCode's default `subagent_depth` is 1, which means primaries can spawn subagents but subagents cannot spawn subagents. This is **intentional and preserved**: it makes uncontrolled recursive agent trees impossible without explicit configuration.
 
