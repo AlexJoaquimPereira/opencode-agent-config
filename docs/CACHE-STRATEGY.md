@@ -1,6 +1,6 @@
 # Cache Strategy
 
-How the harness is designed to be cache-friendly for both DeepSeek V4 Flash (via OpenRouter) and GPT-5.6 Luna (via OpenRouter/OpenAI), and how it cooperates with existing observability/caching plugins rather than duplicating them.
+How the harness is designed to be cache-friendly for both DeepSeek V4.1 Flash (via OpenRouter) and GPT-5.6 Luna (via OpenRouter/OpenAI), and how it cooperates with existing observability/caching plugins rather than duplicating them.
 
 ## 1. What the platform already does (verified)
 
@@ -24,7 +24,7 @@ How the harness is designed to be cache-friendly for both DeepSeek V4 Flash (via
 
 ## 3. Cache economics per model
 
-| | V4 Flash | Luna |
+| | V4.1 Flash | Luna |
 |---|---|---|
 | Cache read cost | 0.1× input | 0.25×–0.5× input |
 | Cache write cost | 1× input | 1.25× input |
