@@ -6,7 +6,7 @@ Qualitative role of each model family in the harness. This document states *whic
 
 | Family | Model ID | Qualitative role |
 |---|---|---|
-| V4 | `openrouter/deepseek/deepseek-v4-flash-0731` | Default implementation workhorse; fast, cheap execution and web research |
+| V4 | `openrouter/deepseek/deepseek-v4.1-flash` | Default implementation workhorse; fast, cheap execution and web research |
 | GLM | `openrouter/z-ai/glm-5.3-flash` | Difficult autonomous coding; intermediate complexity tier between V4 and Luna |
 | Luna | `openrouter/openai/gpt-5.6-luna` | High-risk, architecture, difficult reasoning, final escalation; highest assurance |
 
