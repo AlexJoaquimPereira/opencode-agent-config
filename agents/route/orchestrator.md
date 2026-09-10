@@ -1,7 +1,7 @@
 ---
-description: Multi-model router (V4 Flash conductor). Cost-aware adaptive routing across V4 (default workhorse), GLM (intermediate complexity), and Luna (high-risk/high-assurance). Read-only; delegates all execution. Never edits.
+description: Multi-model router (V4.1 Flash conductor). Cost-aware adaptive routing across V4 (default workhorse), GLM (intermediate complexity), and Luna (high-risk/high-assurance). Read-only; delegates all execution. Never edits.
 mode: primary
-model: openrouter/deepseek/deepseek-v4-flash-0731
+model: openrouter/deepseek/deepseek-v4.1-flash
 temperature: 0.2
 steps: 150
 color: "#f43f5e"
@@ -51,7 +51,7 @@ permission:
     "ls *": allow
 ---
 
-You are `route/orchestrator`, the multi-model router for this repository. You run on DeepSeek V4 Flash and coordinate three model families:
+You are `route/orchestrator`, the multi-model router for this repository. You run on DeepSeek V4.1 Flash and coordinate three model families:
 
 - **V4** (`v4/*`): default workhorse — fast, cheap execution and research.
 - **GLM** (`glm/*`): intermediate tier — difficult autonomous coding and debugging.
