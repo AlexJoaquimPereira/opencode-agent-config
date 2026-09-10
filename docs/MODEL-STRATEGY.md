@@ -1,11 +1,11 @@
 # Model Strategy
 
-Why GPT-5.6 Luna, DeepSeek V4 Flash, and GLM-5.3 Flash are assigned to their specific roles, and how the operating modes work.
+Why GPT-5.6 Luna, DeepSeek V4.1 Flash, and GLM-5.3 Flash are assigned to their specific roles, and how the operating modes work.
 ## 1. The three models
 
-| | GPT-5.6 Luna | DeepSeek V4 Flash | GLM-5.3 Flash |
+| | GPT-5.6 Luna | DeepSeek V4.1 Flash | GLM-5.3 Flash |
 |---|---|---|---|
-| Model ID | `openrouter/openai/gpt-5.6-luna` | `openrouter/deepseek/deepseek-v4-flash-0731` | `openrouter/z-ai/glm-5.3-flash` |
+| Model ID | `openrouter/openai/gpt-5.6-luna` | `openrouter/deepseek/deepseek-v4.1-flash` | `openrouter/z-ai/glm-5.3-flash` |
 | Profile | Deep reasoning, high-quality implementation | Fast, cheap, broad | Fast, cheap, self-contained |
 | Context | ~1.05M (configurable cap + auto-compaction) | ~1.3M | ~1.3M |
 | Web | **No** (hard requirement) | **Yes** (OpenRouter/Exa available) | **Yes, role-appropriate** (repo-first; explorer repo-only) |
@@ -22,9 +22,9 @@ Luna is the implementation authority. Its strengths — deep reasoning, careful 
 
 Temperature is intentionally **not set** on Luna agents: `gpt-5.6-luna` is a reasoning model without temperature support (verified against OpenRouter's supported-parameters list). Instead, some Luna agents set `reasoning_effort: high` (architect, debugger, reviewer, security-review, dual/luna-reviewer) or `medium` (explorer) — these are accepted by the provider and raise depth exactly where the role demands it without extra tokens for the others.
 
-## 3. Mode B — V4 Flash only (primary: `v4/build`)
+## 3. Mode B — V4.1 Flash only (primary: `v4/build`)
 
-V4 Flash is the workhorse: fast repository exploration, cheap implementation, quick iteration, and optional web research. Its prompts deliberately optimize for:
+V4.1 Flash is the workhorse: fast repository exploration, cheap implementation, quick iteration, and optional web research. Its prompts deliberately optimize for:
 
 - **Speed and token cost** — smaller step budgets than Luna for equivalent roles (e.g., `v4/explorer` 25 steps vs `luna/explorer` 30), temperature 0.2 for determinism.
 - **Web access with restraint** — websearch/webfetch are `allow`, but the prompt instructs: use the web **only when repository evidence is insufficient**, at most once per task, and summarize compactly. This protects both the cache prefix (stable context) and the wallet.
