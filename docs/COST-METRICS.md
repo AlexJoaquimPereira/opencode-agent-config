@@ -15,9 +15,9 @@ How the harness measures tokens, cache, cost, success, and escalation — and ho
 
 | Model | Source | Rate notes (USD / 1M tokens) |
 |---|---|---|
-| DeepSeek V4 | DeepSeek direct, peak | cache_hit 0.014, input 0.44, output 1.32 |
-| DeepSeek V4 | DeepSeek direct, off-peak | cache_hit 0.007, input 0.22, output 0.66 |
-| DeepSeek V4 | OpenRouter (pinned model) | input 0.065, cache_read 0.016, output 0.18 (cache write billed at input) |
+| DeepSeek V4.1 | DeepSeek direct, peak | cache_hit 0.006, input 0.30, output 1.20 |
+| DeepSeek V4.1 | DeepSeek direct, off-peak | cache_hit 0.003, input 0.15, output 0.60 |
+| DeepSeek V4.1 | OpenRouter (pinned model) | input 0.065, cache_read 0.016, output 0.18 (cache write billed at input) |
 | GLM-5.3 Flash | OpenRouter (dated) | input 0.075, cache_read 0.015, output 0.25; not assumed permanent |
 | GPT-5.6 Luna | OpenRouter ≤272k | input 0.20, cache_read 0.02, cache_write 0.25, output 1.20, web_search $10/1k calls |
 | GPT-5.6 Luna | OpenAI Flex reference (≤272k) | input 0.10, cache_read 0.01, cache_write 0.125, output 0.60 |
