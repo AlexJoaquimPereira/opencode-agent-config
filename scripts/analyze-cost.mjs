@@ -39,7 +39,7 @@ function familyOf(modelID = "") {
   return null
 }
 function entryOf(family) {
-  if (family === "V4") return pricing.models["deepseek-v4"]
+  if (family === "V4") return pricing.models["deepseek-v4.1"]
   if (family === "GLM") return pricing.models["glm-5.3"]
   if (family === "LUNA") return pricing.models["luna-5.6"]
   return null
