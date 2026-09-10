@@ -5,12 +5,12 @@ Complete reference for every agent: responsibility, model, permissions, step bud
 ## Legend
 
 - **Mode**: `primary` = selectable directly / can spawn subagents; `subagent` = invoked by primaries or via `@mention`.
-- **Model**: `Luna` = `openrouter/openai/gpt-5.6-luna`; `V4` = `openrouter/deepseek/deepseek-v4-flash-0731`; `GLM` = `openrouter/z-ai/glm-5.3-flash`.
+- **Model**: `Luna` = `openrouter/openai/gpt-5.6-luna`; `V4` = `openrouter/deepseek/deepseek-v4.1-flash`; `GLM` = `openrouter/z-ai/glm-5.3-flash`.
 - **Steps**: max agentic iterations before forced text-only response (harness `steps` config).
 - **Web**: webfetch/websearch permission.
 - **Temp**: temperature (only V4 and GLM support it; Luna omits it).
 
-Model families in this harness: **DeepSeek V4 Flash**, **GPT-5.6 Luna**, **GLM-5.3 Flash**. Each family's agents are independently selectable and never route cross-family work themselves. Cross-model routing is centralized in `route/orchestrator` (Mode R), which consumes the escalation contract emitted by single-model builders; `dual/orchestrator` (Mode C) is a separate deterministic V4→Luna workflow.
+Model families in this harness: **DeepSeek V4.1 Flash**, **GPT-5.6 Luna**, **GLM-5.3 Flash**. Each family's agents are independently selectable and never route cross-family work themselves. Cross-model routing is centralized in `route/orchestrator` (Mode R), which consumes the escalation contract emitted by single-model builders; `dual/orchestrator` (Mode C) is a separate deterministic V4→Luna workflow.
 
 ## Mode A — Luna only
 
@@ -112,7 +112,7 @@ Responsibility: inspect diff → trace behavior → identify defects → classif
 
 Responsibility: threat-oriented review (injection, auth, secrets, path traversal, SSRF, deserialization, dependency risk, privilege boundaries). Verdict: `CLEAN` / `REVIEW RECOMMENDED` / `HIGH RISK`.
 
-## Mode B — V4 Flash only
+## Mode B — V4.1 Flash only
 
 ### `v4/build` — primary implementation engineer (V4)
 
