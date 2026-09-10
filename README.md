@@ -1,6 +1,6 @@
 # OpenCode Multi-Model Engineering Harness
 
-A general-purpose, model-aware agent system for OpenCode V2 that runs on three model families — **GPT-5.6 Luna** (deep implementation), **DeepSeek V4 Flash** (fast planning/research), and **GLM-5.3 Flash** (difficult autonomous coding) — independently or, via the router, together. It also ships external measurement layers: task/attempt telemetry, cost accounting, a benchmark harness, and an off-peak direct-DeepSeek batch path.
+A general-purpose, model-aware agent system for OpenCode V2 that runs on three model families — **GPT-5.6 Luna** (deep implementation), **DeepSeek V4.1 Flash** (fast planning/research), and **GLM-5.3 Flash** (difficult autonomous coding) — independently or, via the router, together. It also ships external measurement layers: task/attempt telemetry, cost accounting, a benchmark harness, and an off-peak direct-DeepSeek batch path.
 
 The system behaves like a small software-engineering organization: builders, architects, explorers, debuggers, testers, reviewers, security reviewers, and a two-model orchestrator. It is reusable across arbitrary repositories with no project-specific customization. Project behavior belongs in the project's `AGENTS.md`, not here.
 
@@ -33,7 +33,7 @@ The system behaves like a small software-engineering organization: builders, arc
 │   │   ├── tester.md
 │   │   ├── reviewer.md
 │   │   └── security-review.md
-│   ├── v4/              ← Mode B: V4 Flash-only specialists
+│   ├── v4/              ← Mode B: V4.1 Flash-only specialists
 │   │   ├── build.md             (primary)
 │   │   ├── planner.md
 │   │   ├── explorer.md
@@ -91,10 +91,10 @@ Each single-model primary (`luna/build`, `v4/build`, `glm/build`) is independent
 | Mode | Primary agent | Model | When |
 |------|--------------|-------|------|
 | A — Luna only | `luna/build` | GPT-5.6 Luna | Highest-quality implementation, no web access |
-| B — V4 Flash only | `v4/build` | DeepSeek V4 Flash | Cheap and fast, occasional web research |
-| C — Two-model | `dual/orchestrator` | V4 Flash conductor, Luna builder/reviewer | Deterministic V4→Luna high-assurance workflow |
+| B — V4.1 Flash only | `v4/build` | DeepSeek V4.1 Flash | Cheap and fast, occasional web research |
+| C — Two-model | `dual/orchestrator` | V4.1 Flash conductor, Luna builder/reviewer | Deterministic V4→Luna high-assurance workflow |
 | D — GLM Flash only | `glm/build` | GLM-5.3 Flash | Cheap and fast, self-contained; role-appropriate web |
-| R — Router | `route/orchestrator` | V4 Flash conductor (routes V4/GLM/Luna) | Adaptive: default V4, GLM for difficult coding, Luna for high-risk |
+| R — Router | `route/orchestrator` | V4.1 Flash conductor (routes V4/GLM/Luna) | Adaptive: default V4, GLM for difficult coding, Luna for high-risk |
 
 ## Agent naming
 
