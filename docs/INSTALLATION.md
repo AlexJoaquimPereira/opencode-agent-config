@@ -6,7 +6,7 @@
 - **Providers configured** in `opencode.json`:
   - `openrouter` provider with the three harness models:
     - `openai/gpt-5.6-luna`
-    - `deepseek/deepseek-v4-flash` (any recent dated build)
+    - `deepseek/deepseek-v4.1-flash` (any recent dated build)
     - `z-ai/glm-5.3-flash`
   - Set your preferred context/output limits and provider pinning per OpenCode's provider config.
 - **Optional**: observability and caching plugins (e.g., prompt-cache metrics, DeepSeek thinking preservation) — the harness is designed around their presence (see CACHE-STRATEGY.md) and degrades gracefully if some are absent.
@@ -67,7 +67,7 @@ Each command should print a resolved agent config. Any frontmatter error surface
 1. **No web on Luna**: `opencode debug agent luna/build` → permission list must contain `webfetch → deny` and `websearch → deny`. Check all 7 `luna/*` agents + `dual/luna-reviewer`.
 2. **GLM web is role-appropriate**: `opencode debug agent glm/researcher` → `webfetch → allow`; `opencode debug agent glm/explorer` → `webfetch → deny` (repo-only). Build/review/debug/tester/security/architect allow web; only `glm/explorer` denies it.
 3. **Web on V4 researchers**: `opencode debug agent v4/researcher` → `webfetch → allow`, `websearch → allow`.
-4. **Models**: `luna/*` → `openrouter/openai/gpt-5.6-luna`; `v4/*`, `dual/orchestrator`, `dual/v4-*`, `route/orchestrator` → `openrouter/deepseek/deepseek-v4-flash-0731`; `glm/*` → `openrouter/z-ai/glm-5.3-flash`.
+4. **Models**: `luna/*` → `openrouter/openai/gpt-5.6-luna`; `v4/*`, `dual/orchestrator`, `dual/v4-*`, `route/orchestrator` → `openrouter/deepseek/deepseek-v4.1-flash`; `glm/*` → `openrouter/z-ai/glm-5.3-flash`.
 5. **Delegation allowlists**: `debug agent` shows the `task` rules; confirm the catch-all `deny` precedes specific `allow`s (last-match-wins), that each single-model primary only allows its own family (`glm/build` → `glm/*`, no cross-family task path), and that only `route/orchestrator` spans families.
 6. **subagent_depth**: leave at the default `1` (or set `"subagent_depth": 1` explicitly in `opencode.json`). This keeps agent trees one level deep — no recursive spawning.
 
